@@ -34,7 +34,7 @@ Especificación planeada para el MVP. Se ajusta a medida que se construye el bac
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| POST | `/api/workout-sessions/:id/sets` | Registrar una serie (peso, reps, ejercicio) — dispara el recálculo de PR/rango si aplica |
+| POST | `/api/workout-sessions/:id/sets` | Registrar una serie (carga en kg, reps y ejercicio). Tras guardar la serie se recalcula el PR y el rango asociado cuando aplica |
 
 ## Progreso y rangos
 
@@ -42,7 +42,19 @@ Especificación planeada para el MVP. Se ajusta a medida que se construye el bac
 |---|---|---|
 | GET | `/api/users/me/ranks` | Rango actual por grupo muscular |
 | GET | `/api/users/me/records` | Lista de PRs por ejercicio |
-| GET | `/api/exercises/:id/progress` | Historial de 1RM estimado a lo largo del tiempo (para gráfica) |
+| GET | `/api/exercises/:id/progress` | Pendiente: historial de 1RM estimado (requiere habilitar y validar primero el cálculo) |
+
+## Rutinas y ligas
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/api/routines` | Listar rutinas del usuario |
+| POST | `/api/routines` | Crear una rutina con ejercicios y objetivos |
+| POST | `/api/routines/:id/apply` | Aplicar una rutina a una nueva sesión |
+| GET | `/api/leagues` | Listar ligas abiertas y su estado |
+| POST | `/api/leagues` | Crear una liga de temporada |
+| POST | `/api/leagues/:id/join` | Inscribirse a una liga |
+| GET | `/api/leagues/:id/members` | Ranking de participantes por volumen total |
 
 ## Formato de respuesta
 
@@ -55,7 +67,17 @@ Todas las respuestas en JSON. Errores con estructura consistente:
 }
 ```
 
-## Pendiente para fase 2
+### Estado implementado del registro
 
-- Endpoints de ligas (`/api/leagues`, `/api/leagues/:id/members`)
+`POST /api/workout-sessions/:id/sets` requiere autenticación y solo acepta una sesión del usuario autenticado. Valida un `exerciseId` existente, `weightKg` positivo con máximo dos decimales, `reps` y `setOrder` como enteros positivos. `weightKg` representa kilogramos; el historial incluye el ejercicio de cada serie.
+
+La respuesta satisfactoria incluye el estado de recálculo del sistema de rangos y PR con `calculations.status`, `isNewPR` y `estimated1rm` cuando se produce un registro válido. El backend actual aplica la fórmula de Epley y resuelve el rango del ejercicio/ grupo a partir del ratio resultante, con respaldo a tablas de baja si no existen estándares típicos en BD.
+
+Las tablas de `03-modelo-de-datos.md` siguen siendo un punto de referencia de fuerza, no una fuente oficial de validación estadística para todos los ejercicios. El flujo de ligas y plantillas queda ya activado en backend y cliente según la dinámica aprobada para la fase 2.
+
+## Pendiente / siguiente bloque
+
+- Historias de usuario para edición y borrado de series con recalculación de PR/rango
+- Historial detallado de 1RM por ejercicio
+- Revisión de estándares por sexo y ejercicio con datos reales de usuarios
 - Endpoints sociales si se agregan más adelante

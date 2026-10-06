@@ -1,6 +1,6 @@
 # Pantallas y Flujo de Usuario
 
-Borrador inicial — se detalla con wireframes cuando se defina el stack de frontend.
+Borrador inicial — stack confirmado: React Native con Expo (ver `DECISIONES.md`, Decisión #05). El primer recorrido móvil conectado cubre registro/inicio de sesión, registro de sesión y series, y consulta de historial; los rangos no se muestran hasta aprobar sus reglas.
 
 ## Flujo principal
 

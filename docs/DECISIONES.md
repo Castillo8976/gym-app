@@ -53,9 +53,14 @@ Casi nadie entrena a 1RM real en el día a día (es riesgoso y poco práctico). 
 
 ---
 
-## Decisión #05 *(pendiente de confirmación)*
+## Decisión #05
 
-**¿Qué estoy evaluando?**
-Stack de frontend móvil: React Native (Expo) vs. Flutter vs. PWA empaquetada con Capacitor.
+**¿Qué decidí?**
+Usar **React Native con Expo** para la aplicación móvil de Android e iOS.
 
-**Estado actual:** Se recomienda React Native (Expo) por reutilizar el conocimiento previo en React y permitir publicar en ambas tiendas sin Mac propio vía EAS Build. Falta confirmación final antes de iniciar el desarrollo del frontend.
+**¿Por qué?**
+Permite mantener un único cliente móvil para ambas plataformas y utilizar development builds para probar módulos nativos. Expo Go puede apoyar pruebas iniciales, pero no será la única validación del proyecto.
+
+**Implementación:** JavaScript con Expo SDK `57.0.26` y React Native `0.86.3`. `expo-dev-client` (`57.0.19`), `expo-secure-store` (`57.0.4`) y `expo-system-ui` (`57.0.4`) son compatibles con ese SDK. Los paquetes nativos se instalan con `npx expo install` y sus versiones quedan bloqueadas en `app/package-lock.json`. El cliente se comunica exclusivamente con la API REST documentada.
+
+**Alcance de esta decisión:** no selecciona todavía un proveedor de despliegue, configura EAS en una cuenta ni autoriza builds de tienda, despliegues o publicaciones.

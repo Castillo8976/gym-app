@@ -21,19 +21,20 @@ Las apps de tracking de gym existentes (Strong, Hevy, JEFIT, Fitbod, StrongLifts
 
 ## Alcance del MVP (versión mínima)
 
-**Incluye:**
+**Incluye (estado actual):**
 - Registro de usuario (peso corporal, género, edad)
 - Registro de sesiones de entrenamiento (ejercicio, peso, reps, series)
 - Cálculo automático de 1RM estimado y ratio de fuerza
 - Sistema de rangos por grupo muscular (5 grupos, 5 rangos cada uno)
 - Historial de progreso y PRs
+- Plantillas de entrenamiento / rutinas reutilizables
+- Ligas de temporada y ranking por volumen acumulado
 
-**Queda fuera del MVP (fase 2 o posterior):**
-- Ligas/temporadas y ranking social
+**Queda fuera del MVP actual y del alcance de fase 2 del proyecto:**
 - Detección automática de estancamiento con recomendaciones
 - Integración con wearables
-- Rutinas predefinidas / plantillas de entrenamiento
 - Funciones sociales adicionales (seguir amigos, comentarios)
+- Publicación en tiendas y soporte multi-usuario masivo
 
 ## Público objetivo
 

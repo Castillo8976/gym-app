@@ -205,4 +205,15 @@ async function actualizarRango(userId, exerciseId) {
 ```
 
 ## 4. Siguiente paso sugerido
-Con esto ya tienes la base para arrancar el backend (modelos de Sequelize + endpoints de API). El siguiente bloque lógico sería: endpoints REST (`POST /workout-sets`, `GET /users/:id/ranks`, etc.) y la lógica de recálculo automático al guardar un nuevo set.
+El siguiente bloque es completar y probar el recorrido de registro/consulta con migraciones. Los endpoints de rangos y el recálculo automático deben habilitarse solo después de resolver las reglas enumeradas en la sección siguiente.
+
+## 5. Estado de implementación y reglas pendientes
+
+Las tablas de umbrales de este documento se describen como un punto de partida, no incluyen una fuente bibliográfica verificable ni reglas completas para todos los ejercicios ancla. El backend puede registrar sesiones y series, pero deja deshabilitados PR, 1RM y rangos hasta acordar:
+
+- La fuente y población de referencia de cada estándar, además de unidades y límites aplicables.
+- Qué series son elegibles y cómo se relaciona cada ejercicio o variante con su grupo muscular.
+- Qué peso corporal se usa en un cálculo histórico y cómo afecta su actualización.
+- Cómo se recalculan resultados ante correcciones o eliminaciones de series.
+
+La decisión de usar Epley está documentada, pero no equivale a validar su aplicación en todos los registros ni a validar la idoneidad de los umbrales. El ranking por temporadas permanece fuera del MVP según `01-alcance-y-objetivo.md`.

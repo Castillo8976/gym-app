@@ -17,12 +17,12 @@ Ver el detalle competitivo y los diferenciadores en [`01-alcance-y-objetivo.md`]
 
 | Capa | Tecnología | Justificación |
 |---|---|---|
-| Frontend móvil | **React Native (Expo)** *(propuesto — pendiente de confirmar)* | Reutiliza el conocimiento previo en React; permite compilar para iOS y Android desde un solo código, y publicar en ambas tiendas vía EAS Build sin necesitar Mac propio |
+| Frontend móvil | **React Native con Expo** *(confirmado en Decisión #05)* | Un cliente móvil para Android e iOS; se usarán development builds con `expo-dev-client` para validar módulos nativos |
 | Backend | **Node.js + Express** | Stack ya dominado, API REST liviana |
 | ORM | **Sequelize** | Mismo patrón ya usado en proyectos anteriores (LociónPro) |
 | Base de datos | **MySQL / MariaDB** | Soporta bien las relaciones del modelo (usuarios, ejercicios, sets, rangos, ligas) y escala mejor que SQLite si la app crece con usuarios concurrentes |
 
-> Nota: el frontend está marcado como "propuesto" porque entre React Native, Flutter y una PWA empaquetada con Capacitor se evaluaron opciones — falta confirmar cuál se usa antes de empezar a construir pantallas.
+El stack móvil está confirmado. Expo Go puede servir para comprobaciones iniciales, pero el desarrollo y la validación incluyen development builds. La configuración de EAS y cualquier publicación en tiendas se decidirán y autorizarán por separado.
 
 ---
 
@@ -35,11 +35,18 @@ docs/
 ├── 01-alcance-y-objetivo.md   # qué hace la app, qué NO hace, diferenciadores
 ├── 02-arquitectura.md         # cómo se conectan app / API / base de datos
 ├── 03-modelo-de-datos.md      # esquema SQL + fórmula del sistema de rangos
-├── 04-api-endpoints.md        # especificación de la API REST
-└── 05-pantallas-y-flujo.md    # flujo de usuario y pantallas principales
+├── 04-api-endpoints.md        # especificación de la API REST y fase 2 actual
+├── 05-pantallas-y-flujo.md    # flujo de usuario y pantallas principales
+└── ...
 ```
 
-## Estructura de proyecto (propuesta, aún no construida)
+## Estado actual del proyecto
+
+- Fase 1: registro de entrenamiento, PRs y rangos por grupo muscular validados en backend
+- Fase 2: plantillas de rutina y ligas/temporadas implementadas en backend + aplicación
+- Bloque siguiente: validación de datos históricos, ajustes de estándares y revisión UX con pasos de edición/eliminación de series
+
+## Estructura de proyecto
 
 ```
 gym-app/
@@ -50,7 +57,7 @@ gym-app/
 │   │   ├── routes/         # definición de rutas Express
 │   │   └── services/       # cálculo de rangos, 1RM, etc.
 │   └── package.json
-├── app/                     # React Native (Expo)
+├── app/                     # React Native (Expo, JavaScript)
 │   ├── screens/
 │   ├── components/
 │   └── package.json
@@ -59,7 +66,7 @@ gym-app/
 
 ## Cómo correr el proyecto
 
-*(se completa cuando exista código funcional — por ahora el proyecto está en fase de diseño)*
+El cliente Expo está en `app/`. Sus comandos de instalación, configuración de API y desarrollo están documentados en [`app/README.md`](../app/README.md). El recorrido móvil inicial registra entrenamientos y consulta el historial; no presenta cálculos de rangos pendientes.
 
 ---
 
