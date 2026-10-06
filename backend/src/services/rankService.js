@@ -1,4 +1,4 @@
-const { Exercise, StrengthStandard, PersonalRecord, UserRank, User } = require('../models');
+const { Exercise, StrengthStandard, PersonalRecord, UserRank, User, WorkoutSet, WorkoutSession } = require('../models');
 
 const RANK_ORDER = ['bronce', 'plata', 'oro', 'platino', 'diamante'];
 
@@ -54,6 +54,29 @@ function resolveRankForRatio(ratio, gender, exerciseName = 'Press de banca') {
     }
   }
   return result;
+}
+
+function summarizeBestPRsFromSets(sets = []) {
+  const bestByExercise = new Map();
+
+  for (const set of sets) {
+    if (!set || !set.exerciseId) continue;
+
+    const weightKg = Number(set.weightKg ?? set.weight_kg ?? 0);
+    const reps = Number(set.reps ?? 0);
+    if (!Number.isFinite(weightKg) || !Number.isFinite(reps) || weightKg <= 0 || reps <= 0) continue;
+
+    const exerciseId = Number(set.exerciseId);
+    const estimated1rm = Number((weightKg * (1 + reps / 30)).toFixed(2));
+    const previous = bestByExercise.get(exerciseId) || 0;
+    if (estimated1rm > previous) {
+      bestByExercise.set(exerciseId, estimated1rm);
+    }
+  }
+
+  return [...bestByExercise.entries()]
+    .sort((left, right) => Number(left[0]) - Number(right[0]))
+    .map(([exerciseId, estimated1rm]) => ({ exerciseId, estimated1rm }));
 }
 
 /**
@@ -156,6 +179,46 @@ async function registrarSetYActualizarPR(userId, exerciseId, pesoKg, reps) {
   return { estimated1rm: Number(nuevoEstimado.toFixed(2)), esNuevoPR };
 }
 
+async function recalcUserPersonalRecords(userId, exerciseId = null) {
+  const where = exerciseId ? { exerciseId } : {};
+  const sets = await WorkoutSet.findAll({
+    where,
+    include: [{
+      model: WorkoutSession,
+      where: { userId },
+      attributes: ['id', 'userId'],
+      required: true,
+    }],
+  });
+
+  const targets = new Set();
+  for (const set of sets) {
+    targets.add(Number(set.exerciseId));
+  }
+
+  if (exerciseId) {
+    targets.add(Number(exerciseId));
+  }
+
+  for (const targetExerciseId of [...targets].sort((left, right) => left - right)) {
+    const exerciseSets = sets.filter((set) => Number(set.exerciseId) === Number(targetExerciseId));
+    const summary = summarizeBestPRsFromSets(exerciseSets);
+    const bestEntry = summary[0] || null;
+
+    await PersonalRecord.destroy({ where: { userId, exerciseId: targetExerciseId } });
+    if (bestEntry) {
+      await PersonalRecord.create({
+        userId,
+        exerciseId: targetExerciseId,
+        estimated1rm: Number(bestEntry.estimated1rm),
+      });
+      await actualizarRangoSiAplica(userId, targetExerciseId);
+    }
+  }
+
+  return true;
+}
+
 module.exports = {
   DEFAULT_STANDARDS,
   getExerciseStandardThresholds,
@@ -165,4 +228,6 @@ module.exports = {
   calcularRangoPorRatio,
   actualizarRangoSiAplica,
   registrarSetYActualizarPR,
+  summarizeBestPRsFromSets,
+  recalcUserPersonalRecords,
 };

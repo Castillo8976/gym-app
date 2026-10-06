@@ -354,6 +354,23 @@ function App() {
     }
   }
 
+  async function handleDeleteSet(setId) {
+    if (!sessionDetail?.id || !setId) return;
+    setBusy(true);
+    setNotice('');
+    try {
+      await api.deleteSet(token, sessionDetail.id, setId);
+      const nextSession = await api.getSession(token, sessionDetail.id);
+      setSessionDetail(nextSession);
+      setSessions(await api.getSessions(token));
+      setNotice('Serie eliminada y PRs recalculados.');
+    } catch (error) {
+      setNotice(error.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function resetRoutineBuilder() {
     setRoutineName('');
     setRoutineDescription('');
@@ -880,6 +897,7 @@ function App() {
                   <View style={styles.flex}><Text style={styles.exerciseName}>{set.Exercise?.name || set.exercise?.name || 'Ejercicio'}</Text><Text style={styles.exerciseGroup}>Serie {set.setOrder}</Text></View>
                   <Text style={styles.detailMeasure}>{Number(set.weightKg).toLocaleString('es')} kg</Text>
                   <Text style={styles.detailReps}>× {set.reps}</Text>
+                  <Pressable onPress={() => handleDeleteSet(set.id)} style={styles.deleteSetButton}><Text style={styles.deleteSetText}>Borrar</Text></Pressable>
                 </View>
               ))}
               {detailSets.length === 0 && <Text style={styles.bodyCopy}>Esta sesión todavía no tiene series registradas.</Text>}
@@ -992,6 +1010,8 @@ const styles = StyleSheet.create({
   detailSetRow: { minHeight: 63, borderBottomWidth: 1, borderColor: COLORS.line, flexDirection: 'row', alignItems: 'center', gap: 10 },
   detailMeasure: { color: COLORS.deepGreen, fontSize: 14, fontWeight: '800' },
   detailReps: { minWidth: 35, color: COLORS.ink, fontSize: 14, fontWeight: '700' },
+  deleteSetButton: { marginLeft: 8, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, backgroundColor: COLORS.paleOrange },
+  deleteSetText: { color: COLORS.orange, fontWeight: '700', fontSize: 12 },
   authContainer: { flexGrow: 1, paddingHorizontal: 26, paddingTop: 23, paddingBottom: 32 },
   authHeadingWrap: { marginTop: 56, marginBottom: 30 },
   authHeading: { color: COLORS.ink, fontSize: 37, fontWeight: '800', marginBottom: 10 },

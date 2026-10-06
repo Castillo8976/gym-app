@@ -3,7 +3,7 @@ const {
   validateCreateSessionPayload,
   validateSetPayload,
 } = require('../validators/workoutValidation');
-const { registrarSetYActualizarPR } = require('../services/rankService');
+const { registrarSetYActualizarPR, recalcUserPersonalRecords } = require('../services/rankService');
 
 async function createSession(req, res, next) {
   try {
@@ -88,4 +88,70 @@ async function addSet(req, res, next) {
   }
 }
 
-module.exports = { createSession, listSessions, getSessionDetail, addSet };
+async function updateSet(req, res, next) {
+  try {
+    const session = await WorkoutSession.findOne({
+      where: { id: req.params.id, userId: req.userId },
+    });
+    if (!session) {
+      return res.status(404).json({ error: true, message: 'Sesión no encontrada' });
+    }
+
+    const set = await WorkoutSet.findOne({
+      where: { id: req.params.setId, sessionId: session.id },
+    });
+    if (!set) {
+      return res.status(404).json({ error: true, message: 'Serie no encontrada' });
+    }
+
+    const payload = validateSetPayload(req.body);
+    const previousExerciseId = Number(set.exerciseId);
+
+    set.exerciseId = payload.exerciseId;
+    set.weightKg = payload.weightKg;
+    set.reps = payload.reps;
+    set.setOrder = payload.setOrder;
+    set.setType = payload.setType;
+    set.restSeconds = payload.restSeconds;
+    set.actualRestSeconds = payload.actualRestSeconds;
+    set.notes = payload.notes || null;
+    await set.save();
+
+    await recalcUserPersonalRecords(req.userId, previousExerciseId);
+    if (Number(payload.exerciseId) !== Number(previousExerciseId)) {
+      await recalcUserPersonalRecords(req.userId, Number(payload.exerciseId));
+    }
+
+    res.json(set);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function deleteSet(req, res, next) {
+  try {
+    const session = await WorkoutSession.findOne({
+      where: { id: req.params.id, userId: req.userId },
+    });
+    if (!session) {
+      return res.status(404).json({ error: true, message: 'Sesión no encontrada' });
+    }
+
+    const set = await WorkoutSet.findOne({
+      where: { id: req.params.setId, sessionId: session.id },
+    });
+    if (!set) {
+      return res.status(404).json({ error: true, message: 'Serie no encontrada' });
+    }
+
+    const exerciseId = Number(set.exerciseId);
+    await set.destroy();
+    await recalcUserPersonalRecords(req.userId, exerciseId);
+
+    res.json({ deleted: true, setId: Number(req.params.setId) });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { createSession, listSessions, getSessionDetail, addSet, updateSet, deleteSet };
