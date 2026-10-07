@@ -1,4 +1,5 @@
 const { User, WorkoutSession, WorkoutSet, Exercise, UserRestPreference, ExercisePlateConfig } = require('../models');
+const { recalcularRangosUsuario } = require('../services/rankService');
 
 const DEFAULT_REST_SECONDS = 90;
 const DEFAULT_WARMUP_REST_SECONDS = 60;
@@ -58,9 +59,12 @@ async function updateMe(req, res, next) {
     const user = await User.findByPk(req.userId);
     if (!user) return res.status(404).json({ error: true, message: 'Usuario no encontrado' });
 
+    const bodyweightChanged = bodyweightKg !== undefined
+      && Number(bodyweightKg) !== Number(user.bodyweightKg);
     if (bodyweightKg !== undefined) user.bodyweightKg = bodyweightKg;
     if (name !== undefined) user.name = name;
     await user.save();
+    if (bodyweightChanged) await recalcularRangosUsuario(req.userId);
 
     res.json({ id: user.id, name: user.name, bodyweightKg: user.bodyweightKg });
   } catch (err) {

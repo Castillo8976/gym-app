@@ -32,10 +32,10 @@ Un rango único esconde desequilibrios (alguien fuerte de piernas pero débil de
 ## Decisión #03
 
 **¿Qué decidí?**
-El rango se **recalcula solo cuando hay un nuevo PR** (récord personal), no en cada serie registrada.
+Al registrar series, el rango se recalcula cuando aparece un nuevo PR, no en cada serie. También se recalcula después de editar o borrar series y al cambiar el peso corporal del perfil. El rango de cada grupo es el mayor rango actual de sus ejercicios ancla.
 
 **¿Por qué?**
-Recalcular en cada set sería costoso computacionalmente y no aporta valor — el rango solo cambia si el usuario efectivamente levantó más peso del que tenía registrado como máximo. Esto también evita fluctuaciones sin sentido en la UI (que el rango "parpadee" con cada set).
+Recalcular en cada set sin un nuevo PR sería costoso y no aporta valor. Las ediciones, eliminaciones y cambios de peso sí pueden invalidar un rango previo, por lo que esos cambios reconstruyen el resultado desde los PRs actuales. Los PR históricos se comparan con el peso actual del perfil; no se conserva el peso corporal por sesión.
 
 **Alternativa descartada:** Recalcular en cada serie guardada — innecesario y más caro en llamadas a base de datos.
 
@@ -61,6 +61,20 @@ Usar **React Native con Expo** para la aplicación móvil de Android e iOS.
 **¿Por qué?**
 Permite mantener un único cliente móvil para ambas plataformas y utilizar development builds para probar módulos nativos. Expo Go puede apoyar pruebas iniciales, pero no será la única validación del proyecto.
 
-**Implementación:** JavaScript con Expo SDK `57.0.26` y React Native `0.86.3`. `expo-dev-client` (`57.0.19`), `expo-secure-store` (`57.0.4`) y `expo-system-ui` (`57.0.4`) son compatibles con ese SDK. Los paquetes nativos se instalan con `npx expo install` y sus versiones quedan bloqueadas en `app/package-lock.json`. El cliente se comunica exclusivamente con la API REST documentada.
+**Implementación:** JavaScript con Expo SDK `57.0.27` y React Native `0.86.3`. `expo-dev-client` (`57.0.19`), `expo-secure-store` (`57.0.4`) y `expo-system-ui` (`57.0.4`) son compatibles con ese SDK. La vista web usa `react-dom` (`19.2.3`) y `react-native-web` (`0.21.2`). Las dependencias se instalan con `npx expo install` y quedan bloqueadas en `app/package-lock.json`. El cliente se comunica exclusivamente con la API REST documentada.
 
 **Alcance de esta decisión:** no selecciona todavía un proveedor de despliegue, configura EAS en una cuenta ni autoriza builds de tienda, despliegues o publicaciones.
+
+---
+
+## Decisión #06
+
+**¿Qué decidí?**
+El volumen de liga será la suma de `weightKg * reps` de las series de trabajo de cada miembro. Se cuentan las series `normal`, `failure` y `drop_set`; se excluyen las `warmup`. Solo cuentan sesiones cuya `sessionDate` esté entre `seasonStart` y `seasonEnd`, ambos inclusive.
+
+Al crear la membresía, el volumen inicial se calcula con todas las sesiones elegibles del miembro desde el inicio de la temporada, aunque se una tarde. Así el resultado depende del período deportivo, no de cuándo se creó la membresía. El total se guarda con dos decimales en `league_members.total_volume_kg` y se actualiza al crear, editar o borrar series. Si dos miembros empatan, el ID de usuario ascendente define el orden estable.
+
+**¿Por qué?**
+La fecha de sesión y el tipo de serie ya existen en el modelo; la tabla de membresías no guarda fecha de ingreso. Contar retroactivamente evita agregar una migración solo para reconstruir el total de una persona que se une tarde y mantiene el criterio igual para toda la temporada.
+
+**Alternativa descartada:** contar solo desde el ingreso del usuario — requeriría persistir `joinedAt` y tratar de forma distinta a miembros de una misma temporada.

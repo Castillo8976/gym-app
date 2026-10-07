@@ -26,7 +26,7 @@ La API responde bajo el prefijo `/api` y usa autenticación JWT para los endpoin
 | Método | Ruta | Descripción |
 |---|---|---|
 | GET | `/api/users/me` | Obtener perfil del usuario autenticado |
-| PATCH | `/api/users/me` | Actualizar nombre y/o peso corporal |
+| PATCH | `/api/users/me` | Actualizar nombre y/o peso corporal; al cambiar el peso, recalcular los rangos existentes |
 | GET | `/api/users/me/last-sets` | Última serie registrada por ejercicio |
 | GET | `/api/users/me/rest-preferences` | Preferencias actuales de descanso |
 | PATCH | `/api/users/me/rest-preferences` | Actualizar tiempos de descanso |
@@ -64,16 +64,24 @@ La API responde bajo el prefijo `/api` y usa autenticación JWT para los endpoin
 | GET | `/api/leagues` | Listar ligas abiertas y su estado |
 | POST | `/api/leagues` | Crear una liga de temporada |
 | POST | `/api/leagues/:id/join` | Inscribirse a una liga |
-| GET | `/api/leagues/:id/members` | Ranking de participantes por volumen total |
+| GET | `/api/leagues/:id/members` | Ranking de participantes por volumen almacenado |
 
 ## Reglas de negocio implementadas
 
 - `POST /api/workout-sessions/:id/sets` valida `exerciseId`, `weightKg`, `reps` y `setOrder`.
 - `weightKg` se almacena en kilogramos con dos decimales.
 - Cada serie calcula el 1RM estimado con la fórmula de Epley y actualiza el mejor PR por ejercicio cuando aplica.
-- El recálculo de rangos se dispara automáticamente tras guardar, editar o borrar una serie.
+- Los rangos se recalculan ante un nuevo PR, al editar o borrar una serie, y al cambiar el peso corporal del perfil. El rango por grupo es el mayor rango vigente entre sus ejercicios ancla.
 - Si no existen estándares para un ejercicio concreto, el backend usa una tabla de respaldo para resolver el rango.
-- Las ligas calculan el ranking por volumen total y ordenan el leaderboard del usuario autenticado en función del mismo criterio.
+- El leaderboard ordena por `totalVolumeKg`; el backend recalcula ese total desde las series elegibles al unirse y después de cada mutación de serie.
+
+### Regla de volumen
+
+- Sumar `weightKg * reps` para series `normal`, `failure` y `drop_set`; excluir `warmup`.
+- Incluir sesiones con fecha dentro de la temporada, incluyendo ambos días límite.
+- Al crear la membresía, inicializar el total desde el inicio de la temporada, incluso si el miembro se une tarde.
+- Recalcular los totales afectados al unirse y después de crear, editar o borrar una serie.
+- Desempatar por `userId` ascendente.
 
 ## Estado real de implementación
 
@@ -86,13 +94,14 @@ La funcionalidad siguiente ya está activada en backend y cliente:
 - plantillas de rutina
 - ligas por temporada y ranking
 - perfil editable con peso corporal
+- recálculo de rangos tras cambiar el peso corporal del perfil
 - verificación de salud del backend y conexión a la base de datos
 
 ## Siguiente bloque productivo
 
 Puntos todavía pendientes para refinamiento real del producto:
 
-- validación con una base MySQL/MariaDB real en entorno local
+- ampliar las pruebas automatizadas de integración contra MySQL/MariaDB a más rutas y escenarios
 - ajuste de estándares con datos históricos de usuarios reales
 - revisión UX de edición avanzada y limpieza de experiencia en móvil
 - preparación para despliegue y publicación de tiendas

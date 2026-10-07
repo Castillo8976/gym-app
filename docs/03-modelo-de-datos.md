@@ -158,9 +158,18 @@ CREATE TABLE league_members (
 ```
 
 **Notas de diseño:**
-- `is_anchor` en `exercises` marca cuál ejercicio define el rango de cada grupo muscular.
-- `user_ranks` se recalcula cada vez que hay un nuevo PR (no en cada set, para no saturar la tabla).
-- `league_members.total_volume_kg` se puede recalcular con un trigger o un job diario — para el MVP, hazlo con un job simple, no un trigger complejo.
+- `is_anchor` en `exercises` marca los ejercicios que participan en el rango de su grupo muscular.
+- `user_ranks` refleja el mayor rango actual entre los PRs de los ejercicios ancla del grupo. Se recalcula al conseguir un PR, editar o borrar una serie, y cambiar el peso corporal del perfil; no se recalcula en cada serie sin PR.
+- `league_members.total_volume_kg` almacena la suma de carga por repeticiones de las series elegibles dentro de la temporada. La actualización al unirse y al crear, editar o borrar series está implementada según [Decisión #06](./DECISIONES.md#decisión-06).
+
+### Volumen de liga
+
+- Fórmula por serie: `weightKg * reps`; se suman los resultados y se redondean a dos decimales.
+- Series incluidas: `normal`, `failure` y `drop_set`. `warmup` queda excluida.
+- Período: `sessionDate >= seasonStart` y `sessionDate <= seasonEnd`.
+- Al crear una membresía, calcular desde el inicio de la temporada e incluir las sesiones elegibles anteriores al ingreso.
+- Crear, editar o borrar una serie actualiza el total de las membresías afectadas. El cálculo se hace desde las series persistidas, no mediante un trigger ni un job diario.
+- En caso de empate, ordenar por `userId` ascendente como segundo criterio.
 
 ---
 
@@ -171,42 +180,45 @@ function estimar1RM(peso, reps) {
   return peso * (1 + reps / 30);
 }
 
-async function actualizarRango(userId, exerciseId) {
+async function recalcularRangoGrupo(userId, muscleGroupId) {
   const user = await User.findByPk(userId);
-  const exercise = await Exercise.findByPk(exerciseId);
-
-  const ultimoPR = await PersonalRecord.findOne({
-    where: { userId, exerciseId },
-    order: [['estimated_1rm', 'DESC']]
+  const ejerciciosAncla = await Exercise.findAll({
+    where: { muscleGroupId, isAnchor: true }
   });
 
-  const ratio = ultimoPR.estimated_1rm / user.bodyweight_kg;
+  const rangos = [];
+  for (const exercise of ejerciciosAncla) {
+    const pr = await PersonalRecord.findOne({
+      where: { userId, exerciseId: exercise.id },
+      order: [['estimated_1rm', 'DESC']]
+    });
+    if (!pr) continue;
 
-  const estandares = await StrengthStandard.findAll({
-    where: { exerciseId, gender: user.gender },
-    order: [['bodyweight_ratio', 'ASC']]
-  });
-
-  let nuevoRango = 'bronce';
-  for (const estandar of estandares) {
-    if (ratio >= estandar.bodyweight_ratio) {
-      nuevoRango = estandar.rank_level;
-    }
+    const ratio = pr.estimated1rm / user.bodyweightKg;
+    const estandares = await StrengthStandard.findAll({
+      where: { exerciseId: exercise.id, gender: user.gender },
+      order: [['bodyweight_ratio', 'ASC']]
+    });
+    rangos.push(resolverRango(ratio, estandares, exercise.name));
   }
 
-  if (exercise.isAnchor) {
-    await UserRank.upsert({
-      userId,
-      muscleGroupId: exercise.muscleGroupId,
-      currentRank: nuevoRango
-    });
+  const nuevoRango = rangos.reduce((highest, rank) => (
+    ordenRangos.indexOf(rank) > ordenRangos.indexOf(highest) ? rank : highest
+  ), 'bronce');
+  await UserRank.upsert({ userId, muscleGroupId, currentRank: nuevoRango });
+}
+
+async function recalcularRangosTrasCambiarPeso(userId) {
+  const gruposConRangoOPr = await obtenerGruposAnclaConRangoOPr(userId);
+  for (const muscleGroupId of gruposConRangoOPr) {
+    await recalcularRangoGrupo(userId, muscleGroupId);
   }
 }
 ```
 
 ## 4. Estado actual de implementación
 
-La base de datos ya incluye la estructura principal para usuarios, sesiones, series, rangos, PRs, rutinas y ligas. El backend ya recalcula 1RM, PR y rango al registrar, editar o borrar series, con soporte de tablas de respaldo cuando faltan estándares concretos.
+La base de datos ya incluye la estructura principal para usuarios, sesiones, series, rangos, PRs, rutinas y ligas. El backend recalcula PRs y rangos al registrar, editar o borrar series; también recalcula los rangos existentes cuando cambia el peso corporal del perfil. Los grupos usan el mayor rango actual de sus ejercicios ancla y vuelven a bronce si ya no conservan un PR elegible.
 
 ## 5. Reglas pendientes para validación real
 
@@ -214,7 +226,6 @@ Las tablas de umbrales siguen siendo un punto de referencia útil, no una firma 
 
 - validar la fuente y población de cada estándar con usuarios reales
 - confirmar qué series son elegibles para cada ejercicio y variante
-- definir cómo se interpreta el peso corporal histórico cuando cambia el perfil del usuario
-- revisar la sensibilidad de los rangos con muestras reales y ajustar criterios si hace falta
+- validar con usuarios reales la fuente y sensibilidad de los estándares calculados con el peso actual del perfil; el esquema no conserva el peso histórico por sesión
 
 La decisión de usar Epley ya está aplicada y validada en la lógica del backend. El ranking por temporadas forma parte del flujo activo de ligas, pero su ajuste final sigue siendo un punto de tunning con uso real.

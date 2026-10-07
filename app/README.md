@@ -17,7 +17,7 @@ npm install
 npx expo install --check
 ```
 
-La app usa Expo SDK `57.0.26`, React Native `0.86.3`, `expo-dev-client` `57.0.19`, `expo-secure-store` `57.0.4` y `expo-system-ui` `57.0.4`. Las versiones exactas quedan registradas también en `package-lock.json`. Usa `npx expo install <paquete>` al añadir módulos nativos para mantener la matriz del SDK. Mantén `expo-dev-client` instalado: las pruebas de módulos nativos deben ejecutarse en un development build, no solo en Expo Go.
+La app usa Expo SDK `57.0.27`, React Native `0.86.3`, `expo-dev-client` `57.0.19`, `expo-secure-store` `57.0.4`, `expo-system-ui` `57.0.4` y soporte web con `react-dom` `19.2.3` y `react-native-web` `0.21.2`. Las versiones exactas quedan registradas también en `package-lock.json`. Usa `npx expo install <paquete>` al añadir módulos nativos para mantener la matriz del SDK. Mantén `expo-dev-client` instalado: las pruebas de módulos nativos deben ejecutarse en un development build, no solo en Expo Go.
 
 ## Conectar con la API
 
@@ -51,6 +51,16 @@ npm run dev-client
 `npm run android` equivale a `expo run:android` y compila el cliente nativo; no es un sustituto de Expo Go. En otra terminal, `npm run dev-client` proporciona el bundle JS y recarga rápida.
 
 `expo run:ios` requiere macOS. EAS Build no está configurado en esta entrega; la preparación de cuentas, firma y builds de tienda se documentará aparte y requerirá autorización.
+
+## Vista previa web
+
+Desde `app/`, inicia la vista de desarrollo en navegador:
+
+```powershell
+npm run web
+```
+
+Expo muestra la URL local, normalmente `http://localhost:8081`. La vista web sirve para revisar la interfaz y no sustituye las pruebas en Android/iOS ni un development build. En web, el token de la sesión de desarrollo se guarda en `localStorage`; en Android/iOS se mantiene en `expo-secure-store`.
 
 ## Recorrido actual
 

@@ -53,6 +53,16 @@ Ejecuta las pruebas unitarias desde `backend/`:
 npm test
 ```
 
+La integración del volumen de ligas contra MySQL/MariaDB es opt-in. Desde `backend/`, en PowerShell:
+
+```powershell
+$env:RUN_DB_INTEGRATION = '1'
+node --test tests/leagueVolume.integration.test.js
+Remove-Item Env:RUN_DB_INTEGRATION
+```
+
+La prueba crea y elimina sus propios datos temporales; requiere una base migrada y el usuario configurado en `.env` con permisos para insertar y borrar registros.
+
 ## Estructura
 
 ```
@@ -77,12 +87,14 @@ src/
 - Sesiones y series con recálculo automático de PR y rangos
 - Edición y borrado de series con recalculación de métricas
 - Rutas de rutinas implementadas en backend + app
-- Ligas por temporada y ranking por volumen total
+- Ligas por temporada con volumen calculado automáticamente desde las series elegibles y orden estable del leaderboard
 - Perfil de usuario editable con peso corporal
+- Recalculo de rangos al cambiar el peso corporal del perfil
 - Validación de salud de backend con `/api/health`
 
 ## Siguiente refinamiento
 
+- ampliar las pruebas de integración para más rutas y escenarios de API
 - validación de estándares con datos históricos reales
 - ajustes de rangos con usuarios reales y métricas de uso
 - preparación para despliegue/tiendas y entornos de producción real

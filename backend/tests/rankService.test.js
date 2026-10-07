@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const {
   resolveRankForRatio,
   getExerciseStandardThresholds,
+  resolveHighestRank,
 } = require('../src/services/rankService');
 
 test('maps ratio values to the documented strength rank thresholds', () => {
@@ -29,4 +30,10 @@ test('returns the fallback standard table for anchor exercises when no database 
     platino: 1.4,
     diamante: 1.75,
   });
+});
+
+test('recomputes a group rank from its current anchor exercise ranks', () => {
+  assert.equal(resolveHighestRank(['plata', 'bronce']), 'plata');
+  assert.equal(resolveHighestRank(['bronce']), 'bronce');
+  assert.equal(resolveHighestRank([]), 'bronce');
 });

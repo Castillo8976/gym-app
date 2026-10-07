@@ -2,6 +2,12 @@ const { Exercise, StrengthStandard, PersonalRecord, UserRank, User, WorkoutSet, 
 
 const RANK_ORDER = ['bronce', 'plata', 'oro', 'platino', 'diamante'];
 
+function resolveHighestRank(ranks = []) {
+  return ranks.reduce((highest, rank) => (
+    RANK_ORDER.indexOf(rank) > RANK_ORDER.indexOf(highest) ? rank : highest
+  ), 'bronce');
+}
+
 const DEFAULT_STANDARDS = {
   'press de banca': {
     male: { bronce: 0.5, plata: 0.75, oro: 1, platino: 1.25, diamante: 1.5 },
@@ -132,29 +138,63 @@ async function calcularRangoPorRatio(exerciseId, gender, ratio) {
  * no en cada set — y solo si el ejercicio es "ancla" de su grupo muscular
  * (Decisión #02: rango por grupo muscular, no un rango general único).
  */
-async function actualizarRangoSiAplica(userId, exerciseId) {
-  const exercise = await Exercise.findByPk(exerciseId);
-  if (!exercise || !exercise.isAnchor) return null;
-
+async function recalcularRangoGrupo(userId, muscleGroupId) {
   const user = await User.findByPk(userId);
-  const ratio = await calcularRatio(userId, exerciseId);
-  if (ratio === null || !user) return null;
+  if (!user) return null;
 
-  const nuevoRango = await calcularRangoPorRatio(exerciseId, user.gender, ratio);
+  const anchorExercises = await Exercise.findAll({
+    where: { muscleGroupId, isAnchor: true },
+  });
+  const ranks = [];
+  for (const exercise of anchorExercises) {
+    const ratio = await calcularRatio(userId, exercise.id);
+    if (ratio !== null) {
+      ranks.push(await calcularRangoPorRatio(exercise.id, user.gender, ratio));
+    }
+  }
+  const nuevoRango = resolveHighestRank(ranks);
 
   const [userRank] = await UserRank.findOrCreate({
-    where: { userId, muscleGroupId: exercise.muscleGroupId },
+    where: { userId, muscleGroupId },
     defaults: { currentRank: nuevoRango },
   });
 
-  const rankActualIndex = RANK_ORDER.indexOf(userRank.currentRank);
-  const rankNuevoIndex = RANK_ORDER.indexOf(nuevoRango);
-  if (rankNuevoIndex > rankActualIndex) {
+  if (userRank.currentRank !== nuevoRango) {
     userRank.currentRank = nuevoRango;
     await userRank.save();
   }
 
   return userRank;
+}
+
+async function recalcularRangosUsuario(userId) {
+  const [userRanks, anchorExercises] = await Promise.all([
+    UserRank.findAll({ where: { userId }, attributes: ['muscleGroupId'] }),
+    Exercise.findAll({ where: { isAnchor: true }, attributes: ['id', 'muscleGroupId'] }),
+  ]);
+  const exerciseById = new Map(anchorExercises.map((exercise) => [Number(exercise.id), exercise]));
+  const muscleGroupIds = new Set(userRanks.map((rank) => Number(rank.muscleGroupId)));
+
+  if (exerciseById.size > 0) {
+    const personalRecords = await PersonalRecord.findAll({
+      where: { userId, exerciseId: [...exerciseById.keys()] },
+      attributes: ['exerciseId'],
+    });
+    for (const record of personalRecords) {
+      const exercise = exerciseById.get(Number(record.exerciseId));
+      if (exercise) muscleGroupIds.add(Number(exercise.muscleGroupId));
+    }
+  }
+
+  for (const muscleGroupId of muscleGroupIds) {
+    await recalcularRangoGrupo(userId, muscleGroupId);
+  }
+}
+
+async function actualizarRangoSiAplica(userId, exerciseId) {
+  const exercise = await Exercise.findByPk(exerciseId);
+  if (!exercise || !exercise.isAnchor) return null;
+  return recalcularRangoGrupo(userId, exercise.muscleGroupId);
 }
 
 /**
@@ -212,8 +252,16 @@ async function recalcUserPersonalRecords(userId, exerciseId = null) {
         exerciseId: targetExerciseId,
         estimated1rm: Number(bestEntry.estimated1rm),
       });
-      await actualizarRangoSiAplica(userId, targetExerciseId);
     }
+  }
+
+  const muscleGroupIds = new Set();
+  for (const targetExerciseId of targets) {
+    const exercise = await Exercise.findByPk(targetExerciseId);
+    if (exercise?.isAnchor) muscleGroupIds.add(Number(exercise.muscleGroupId));
+  }
+  for (const muscleGroupId of muscleGroupIds) {
+    await recalcularRangoGrupo(userId, muscleGroupId);
   }
 
   return true;
@@ -223,10 +271,12 @@ module.exports = {
   DEFAULT_STANDARDS,
   getExerciseStandardThresholds,
   resolveRankForRatio,
+  resolveHighestRank,
   estimar1RM,
   calcularRatio,
   calcularRangoPorRatio,
   actualizarRangoSiAplica,
+  recalcularRangosUsuario,
   registrarSetYActualizarPR,
   summarizeBestPRsFromSets,
   recalcUserPersonalRecords,

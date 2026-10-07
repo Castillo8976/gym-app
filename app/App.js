@@ -18,6 +18,25 @@ import {
 import { api } from './src/api';
 
 const TOKEN_KEY = 'gym-app-session-token';
+
+function getStoredToken() {
+  return Platform.OS === 'web'
+    ? globalThis.localStorage.getItem(TOKEN_KEY)
+    : SecureStore.getItemAsync(TOKEN_KEY);
+}
+
+function setStoredToken(token) {
+  return Platform.OS === 'web'
+    ? globalThis.localStorage.setItem(TOKEN_KEY, token)
+    : SecureStore.setItemAsync(TOKEN_KEY, token);
+}
+
+function deleteStoredToken() {
+  return Platform.OS === 'web'
+    ? globalThis.localStorage.removeItem(TOKEN_KEY)
+    : SecureStore.deleteItemAsync(TOKEN_KEY);
+}
+
 const COLORS = {
   ink: '#24142F',
   muted: '#6A5A7A',
@@ -202,14 +221,14 @@ function App() {
   useEffect(() => {
     async function restoreSession() {
       try {
-        const savedToken = await SecureStore.getItemAsync(TOKEN_KEY);
+        const savedToken = await getStoredToken();
         if (!savedToken) return;
         const profile = await api.getProfile(savedToken);
         setToken(savedToken);
         setUser(profile);
         await loadData(savedToken);
       } catch (error) {
-        await SecureStore.deleteItemAsync(TOKEN_KEY);
+        await deleteStoredToken();
         setNotice(error.message);
       } finally {
         setLoading(false);
@@ -275,7 +294,7 @@ function App() {
         });
       }
       const result = await api.login({ email: email.trim(), password });
-      await SecureStore.setItemAsync(TOKEN_KEY, result.token);
+      await setStoredToken(result.token);
       const [profile, exerciseList, history, restPrefs, plates, lastReferenceSets, routineList, rankList, recordList, leagueList] = await Promise.all([
         api.getProfile(result.token),
         api.getExercises(),
@@ -622,7 +641,7 @@ function App() {
   }
 
   async function handleLogout() {
-    await SecureStore.deleteItemAsync(TOKEN_KEY);
+    await deleteStoredToken();
     setToken(null);
     setUser(null);
     setActiveSession(null);

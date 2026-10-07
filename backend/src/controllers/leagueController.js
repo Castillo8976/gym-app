@@ -1,6 +1,7 @@
 const { League, LeagueMember, User } = require('../models');
 const { validateLeaguePayload } = require('../validators/leagueValidation');
 const { calculateLeagueStandings } = require('../services/leagueService');
+const { recalculateLeagueMemberVolume } = require('../services/leagueVolumeService');
 
 async function listLeagues(req, res, next) {
   try {
@@ -64,6 +65,8 @@ async function joinLeague(req, res, next) {
         totalVolumeKg: 0,
       },
     });
+    await recalculateLeagueMemberVolume(league.id, req.userId);
+    await membership.reload();
 
     res.status(201).json(membership);
   } catch (error) {

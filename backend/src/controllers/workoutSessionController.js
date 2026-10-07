@@ -4,6 +4,7 @@ const {
   validateSetPayload,
 } = require('../validators/workoutValidation');
 const { registrarSetYActualizarPR, recalcUserPersonalRecords } = require('../services/rankService');
+const { recalculateUserLeagueVolumesForDate } = require('../services/leagueVolumeService');
 
 async function createSession(req, res, next) {
   try {
@@ -74,6 +75,7 @@ async function addSet(req, res, next) {
     });
 
     const calculations = await registrarSetYActualizarPR(req.userId, exerciseId, weightKg, reps);
+    await recalculateUserLeagueVolumesForDate(req.userId, session.sessionDate);
 
     res.status(201).json({
       set,
@@ -121,6 +123,7 @@ async function updateSet(req, res, next) {
     if (Number(payload.exerciseId) !== Number(previousExerciseId)) {
       await recalcUserPersonalRecords(req.userId, Number(payload.exerciseId));
     }
+    await recalculateUserLeagueVolumesForDate(req.userId, session.sessionDate);
 
     res.json(set);
   } catch (err) {
@@ -147,6 +150,7 @@ async function deleteSet(req, res, next) {
     const exerciseId = Number(set.exerciseId);
     await set.destroy();
     await recalcUserPersonalRecords(req.userId, exerciseId);
+    await recalculateUserLeagueVolumesForDate(req.userId, session.sessionDate);
 
     res.json({ deleted: true, setId: Number(req.params.setId) });
   } catch (err) {

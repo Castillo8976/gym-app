@@ -43,31 +43,34 @@ docs/
 ## Estado actual del proyecto
 
 - Fase 1: registro de entrenamiento, PRs y rangos por grupo muscular validados en backend
-- Fase 2: plantillas de rutina, ligas/temporadas y flujo completo de historial ya implementados en backend + app
-- Fase 3: perfil editable, estado de conexión en vivo con la API, refinamiento UX y tema visual morado aplicado a la interfaz
-- Bloque siguiente: validación con MySQL/MariaDB real, datos históricos de usuarios y tuneo del sistema de estándares con uso real
+- Fase 2: rutinas, historial, creación/ingreso a ligas y volumen automático de temporada implementados
+- Fase 3: perfil editable con recálculo de rangos al cambiar el peso, estado de conexión con la API y tema visual morado
+- Validado localmente: migraciones y catálogo en una instancia aislada de MariaDB; la API responde con la base conectada
+- Bloque siguiente: ampliar pruebas de integración con base de datos y validar estándares con usuarios reales
 
 ## Estructura de proyecto
 
 ```
 gym-app/
+├── app/                     # cliente React Native con Expo
+│   ├── App.js
+│   └── src/api.js
 ├── backend/
 │   ├── src/
-│   │   ├── models/         # modelos Sequelize
-│   │   ├── controllers/    # lógica de cada endpoint
-│   │   ├── routes/         # definición de rutas Express
-│   │   └── services/       # cálculo de rangos, 1RM, etc.
-│   └── package.json
-├── app/                     # React Native (Expo, JavaScript)
-│   ├── screens/
-│   ├── components/
+│   │   ├── config/
+│   │   ├── controllers/
+│   │   ├── models/
+│   │   ├── routes/
+│   │   ├── services/
+│   │   └── validators/
+│   ├── tests/
 │   └── package.json
 └── docs/
 ```
 
 ## Cómo correr el proyecto
 
-El cliente Expo está en `app/`. Sus comandos de instalación, configuración de API y desarrollo están documentados en [`app/README.md`](../app/README.md). El recorrido móvil inicial registra entrenamientos y consulta el historial; no presenta cálculos de rangos pendientes.
+El cliente Expo está en `app/`. Sus comandos de instalación, configuración de API y desarrollo están documentados en [`app/README.md`](../app/README.md). La app incluye entrenamiento e historial, PRs y rangos, rutinas, ligas, perfil editable y estado del backend.
 
 ---
 
