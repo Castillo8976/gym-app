@@ -117,6 +117,11 @@ function App() {
   const [ranks, setRanks] = useState([]);
   const [records, setRecords] = useState([]);
   const [leagues, setLeagues] = useState([]);
+  const [showLeagueBuilder, setShowLeagueBuilder] = useState(false);
+  const [leagueName, setLeagueName] = useState('');
+  const [leagueStart, setLeagueStart] = useState(getLocalDate());
+  const [leagueEnd, setLeagueEnd] = useState('');
+  const [leagueDetail, setLeagueDetail] = useState(null);
   const [activeSession, setActiveSession] = useState(null);
   const [selectedExercise, setSelectedExercise] = useState(null);
   const [weight, setWeight] = useState('');
@@ -351,6 +356,74 @@ function App() {
       setSessions(await api.getSessions(token));
     } catch (error) {
       setNotice(error.message);
+    }
+  }
+
+  async function reloadLeagues() {
+    if (!token) return;
+    try {
+      const leagueList = await api.getLeagues(token).catch(() => []);
+      setLeagues(leagueList || []);
+    } catch (error) {
+      setNotice(error.message);
+    }
+  }
+
+  async function handleCreateLeague() {
+    if (!leagueName.trim()) {
+      setNotice('Pon un nombre para la liga.');
+      return;
+    }
+    if (!leagueStart || !leagueEnd) {
+      setNotice('Define la fecha de inicio y fin de la temporada.');
+      return;
+    }
+
+    setBusy(true);
+    setNotice('');
+    try {
+      await api.createLeague(token, {
+        name: leagueName.trim(),
+        seasonStart: leagueStart,
+        seasonEnd: leagueEnd,
+      });
+      setShowLeagueBuilder(false);
+      setLeagueName('');
+      setLeagueStart(getLocalDate());
+      setLeagueEnd('');
+      await reloadLeagues();
+      setNotice('Liga creada correctamente.');
+    } catch (error) {
+      setNotice(error.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleJoinLeague(leagueId) {
+    setBusy(true);
+    setNotice('');
+    try {
+      await api.joinLeague(token, leagueId);
+      await reloadLeagues();
+      setNotice('Te has unido a la liga.');
+    } catch (error) {
+      setNotice(error.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function openLeagueDetail(league) {
+    setBusy(true);
+    setNotice('');
+    try {
+      const members = await api.getLeagueMembers(token, league.id);
+      setLeagueDetail({ league, members });
+    } catch (error) {
+      setNotice(error.message);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -713,11 +786,25 @@ function App() {
 
             {leagues.length > 0 && (
               <View style={styles.recentSection}>
-                <View style={styles.sectionHeadingRow}><Text style={styles.sectionTitle}>Ligas</Text></View>
+                <View style={styles.sectionHeadingRow}>
+                  <Text style={styles.sectionTitle}>Ligas</Text>
+                  <Pressable onPress={() => setShowLeagueBuilder(true)}><Text style={styles.linkText}>Crear</Text></Pressable>
+                </View>
                 {leagues.map((league) => (
                   <View key={league.id} style={styles.routineCard}>
-                    <Text style={styles.exerciseName}>{league.name}</Text>
-                    <Text style={styles.bodyCopy}>{league.memberCount} participantes · {league.isJoined ? 'Inscrito' : 'Abierta'} · {formatDate(league.seasonStart)} - {formatDate(league.seasonEnd)}</Text>
+                    <View style={styles.sectionHeadingRow}>
+                      <View style={styles.flex}>
+                        <Text style={styles.exerciseName}>{league.name}</Text>
+                        <Text style={styles.bodyCopy}>{league.memberCount} participantes · {league.isJoined ? 'Inscrito' : 'Abierta'} · {formatDate(league.seasonStart)} - {formatDate(league.seasonEnd)}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.measureRow}>
+                      {!league.isJoined ? (
+                        <Pressable onPress={() => handleJoinLeague(league.id)} style={styles.primaryButtonSecondary}><Text style={styles.primaryButtonText}>Unirse</Text></Pressable>
+                      ) : (
+                        <Pressable onPress={() => openLeagueDetail(league)} style={styles.primaryButtonSecondary}><Text style={styles.primaryButtonText}>Ver ranking</Text></Pressable>
+                      )}
+                    </View>
                   </View>
                 ))}
               </View>
@@ -878,6 +965,46 @@ function App() {
                   <Text style={styles.optionArrow}>›</Text>
                 </Pressable>
               ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal animationType="slide" onRequestClose={() => setShowLeagueBuilder(false)} transparent visible={showLeagueBuilder}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.detailSheet}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sectionHeadingRow}>
+              <View><Text style={styles.eyebrow}>LIGA</Text><Text style={styles.sheetTitle}>Crear temporada</Text></View>
+              <Pressable accessibilityLabel="Cerrar liga" onPress={() => setShowLeagueBuilder(false)} style={styles.closeButton}><Text style={styles.closeButtonText}>×</Text></Pressable>
+            </View>
+            <ScrollView style={styles.exerciseList}>
+              <Field label="Nombre de la liga" value={leagueName} onChangeText={setLeagueName} placeholder="Ej. Liga Octubre" keyboardType="default" />
+              <Field label="Fecha inicio" value={leagueStart} onChangeText={setLeagueStart} placeholder="YYYY-MM-DD" keyboardType="default" />
+              <Field label="Fecha fin" value={leagueEnd} onChangeText={setLeagueEnd} placeholder="YYYY-MM-DD" keyboardType="default" />
+              {!!notice && <Text accessibilityRole="alert" style={styles.notice}>{notice}</Text>}
+              <PrimaryButton label="Guardar liga" loading={busy} onPress={handleCreateLeague} />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal animationType="slide" onRequestClose={() => setLeagueDetail(null)} transparent visible={!!leagueDetail}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.detailSheet}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sectionHeadingRow}>
+              <View><Text style={styles.eyebrow}>RANKING</Text><Text style={styles.sheetTitle}>{leagueDetail?.league?.name || 'Liga'}</Text></View>
+              <Pressable accessibilityLabel="Cerrar ranking" onPress={() => setLeagueDetail(null)} style={styles.closeButton}><Text style={styles.closeButtonText}>×</Text></Pressable>
+            </View>
+            <ScrollView style={styles.exerciseList}>
+              {(leagueDetail?.members || []).map((member, index) => (
+                <View key={member.id || `${member.userId}-${index}`} style={styles.detailSetRow}>
+                  <Text style={styles.detailMeasure}>#{index + 1}</Text>
+                  <View style={styles.flex}><Text style={styles.exerciseName}>{member.user?.name || member.User?.name || 'Usuario'}</Text><Text style={styles.exerciseGroup}>{Number(member.totalVolumeKg || 0).toLocaleString('es', { maximumFractionDigits: 2 })} kg</Text></View>
+                </View>
+              ))}
+              {(!leagueDetail?.members || leagueDetail.members.length === 0) && <Text style={styles.bodyCopy}>Todavía no hay participantes en esta liga.</Text>}
             </ScrollView>
           </View>
         </View>
