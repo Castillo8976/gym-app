@@ -19,17 +19,17 @@ import { api } from './src/api';
 
 const TOKEN_KEY = 'gym-app-session-token';
 const COLORS = {
-  ink: '#1F2925',
-  muted: '#66736D',
-  paper: '#F4F3EC',
+  ink: '#24142F',
+  muted: '#6A5A7A',
+  paper: '#F7F3FF',
   white: '#FFFFFF',
-  line: '#DDE1D8',
-  green: '#B9E36A',
-  deepGreen: '#36513D',
-  orange: '#D9663D',
-  paleGreen: '#E9F0DB',
-  paleOrange: '#F6E5DC',
-  error: '#A43C35',
+  line: '#E5D9F8',
+  purple: '#8B5CF6',
+  deepPurple: '#4C1D95',
+  violet: '#A78BFA',
+  palePurple: '#EFE9FF',
+  lavender: '#F3E8FF',
+  error: '#A13C7F',
 };
 
 function formatDate(value) {
@@ -117,6 +117,8 @@ function App() {
   const [ranks, setRanks] = useState([]);
   const [records, setRecords] = useState([]);
   const [leagues, setLeagues] = useState([]);
+  const [profileName, setProfileName] = useState('');
+  const [profileWeight, setProfileWeight] = useState('');
   const [showLeagueBuilder, setShowLeagueBuilder] = useState(false);
   const [leagueName, setLeagueName] = useState('');
   const [leagueStart, setLeagueStart] = useState(getLocalDate());
@@ -171,6 +173,11 @@ function App() {
     setRecords(recordList || []);
     setLeagues(leagueList || []);
   }
+
+  useEffect(() => {
+    setProfileName(user?.name || '');
+    setProfileWeight(user?.bodyweightKg !== undefined && user?.bodyweightKg !== null ? String(user.bodyweightKg) : '');
+  }, [user]);
 
   useEffect(() => {
     async function restoreSession() {
@@ -272,6 +279,28 @@ function App() {
       setRanks(rankList || []);
       setRecords(recordList || []);
       setLeagues(leagueList || []);
+    } catch (error) {
+      setNotice(error.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSaveProfile() {
+    if (!token) return;
+    setBusy(true);
+    setNotice('');
+    try {
+      const bodyweightKg = parseDecimal(profileWeight);
+      if (!Number.isFinite(bodyweightKg) || bodyweightKg <= 0) {
+        throw new Error('El peso corporal debe ser un número válido y mayor que 0.');
+      }
+      const updated = await api.updateProfile(token, {
+        name: profileName.trim(),
+        bodyweightKg,
+      });
+      setUser((current) => ({ ...(current || {}), ...updated }));
+      setNotice('Perfil actualizado.');
     } catch (error) {
       setNotice(error.message);
     } finally {
@@ -585,7 +614,7 @@ function App() {
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingScreen}>
-        <ActivityIndicator color={COLORS.deepGreen} size="large" />
+        <ActivityIndicator color={COLORS.deepPurple} size="large" />
       </SafeAreaView>
     );
   }
@@ -659,6 +688,9 @@ function App() {
         </Pressable>
         <Pressable onPress={() => { setTab('history'); setActiveSession(null); }} style={[styles.tab, tab === 'history' && styles.tabActive]}>
           <Text style={[styles.tabText, tab === 'history' && styles.tabTextActive]}>Historial</Text>
+        </Pressable>
+        <Pressable onPress={() => setTab('profile')} style={[styles.tab, tab === 'profile' && styles.tabActive]}>
+          <Text style={[styles.tabText, tab === 'profile' && styles.tabTextActive]}>Perfil</Text>
         </Pressable>
       </View>
 
@@ -840,6 +872,53 @@ function App() {
               </View>
             )}
           </>
+        ) : tab === 'profile' ? (
+          <>
+            <View style={styles.pageHeading}>
+              <Text style={styles.eyebrow}>TU PERFIL</Text>
+              <Text style={styles.pageTitle}>{user?.name || 'Atleta'}</Text>
+              <Text style={styles.bodyCopy}>Actualiza tu peso corporal y revisa tu progreso.</Text>
+            </View>
+
+            <View style={styles.startPanel}>
+              <View style={styles.startPanelText}>
+                <Text style={styles.panelKicker}>RESUMEN</Text>
+                <Text style={styles.panelTitle}>{Number(user?.bodyweightKg || 0).toLocaleString('es', { maximumFractionDigits: 2 })} kg</Text>
+                <Text style={styles.panelBody}>{user?.gender === 'female' ? 'Perfil femenino' : 'Perfil masculino'} · {ranks.length} rangos activos</Text>
+              </View>
+            </View>
+
+            <View style={styles.workoutPanel}>
+              <Field label="Nombre" value={profileName} onChangeText={setProfileName} placeholder="Tu nombre" keyboardType="default" />
+              <Field label="Peso corporal (kg)" value={profileWeight} onChangeText={setProfileWeight} placeholder="Ej. 68.5" keyboardType="decimal-pad" />
+              {!!notice && <Text accessibilityRole="alert" style={styles.notice}>{notice}</Text>}
+              <PrimaryButton label="Guardar cambios" loading={busy} onPress={handleSaveProfile} />
+            </View>
+
+            {ranks.length > 0 && (
+              <View style={styles.recentSection}>
+                <View style={styles.sectionHeadingRow}><Text style={styles.sectionTitle}>Rangos</Text></View>
+                {ranks.map((rank) => (
+                  <View key={rank.id} style={styles.routineCard}>
+                    <Text style={styles.exerciseName}>{rank.MuscleGroup?.name || 'Grupo muscular'}</Text>
+                    <Text style={styles.bodyCopy}>Nivel actual: {rank.currentRank || rank.rankLevel || 'Sin nivel'}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {records.length > 0 && (
+              <View style={styles.recentSection}>
+                <View style={styles.sectionHeadingRow}><Text style={styles.sectionTitle}>PRs</Text></View>
+                {records.slice(0, 3).map((record) => (
+                  <View key={record.id} style={styles.routineCard}>
+                    <Text style={styles.exerciseName}>{record.Exercise?.name || 'Ejercicio'}</Text>
+                    <Text style={styles.bodyCopy}>1RM estimado: {Number(record.estimated1rm || 0).toLocaleString('es', { maximumFractionDigits: 2 })} kg</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </>
         ) : (
           <>
             <View style={styles.pageHeading}>
@@ -847,7 +926,7 @@ function App() {
               <Text style={styles.pageTitle}>Historial.</Text>
               <Text style={styles.bodyCopy}>Sesiones guardadas con sus series y repeticiones.</Text>
             </View>
-            {busy && <ActivityIndicator color={COLORS.deepGreen} style={styles.inlineLoader} />}
+            {busy && <ActivityIndicator color={COLORS.deepPurple} style={styles.inlineLoader} />}
             {!!notice && <Text accessibilityRole="alert" style={styles.notice}>{notice}</Text>}
             {sessions.length === 0 ? (
               <View style={styles.emptyState}><Text style={styles.emptyMark}>—</Text><Text style={styles.emptyTitle}>Todavía no hay sesiones</Text><Text style={styles.bodyCopy}>Tu primer entrenamiento aparecerá aquí.</Text><PrimaryButton label="Empezar entrenamiento" onPress={() => { setTab('train'); }} /></View>
@@ -1052,59 +1131,59 @@ const styles = StyleSheet.create({
   loadingScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.paper },
   topBar: { height: 64, paddingHorizontal: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   brandLine: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  brandMark: { width: 28, height: 28, borderRadius: 8, backgroundColor: COLORS.green, alignItems: 'center', justifyContent: 'center' },
-  brandMarkText: { color: COLORS.ink, fontWeight: '900', fontSize: 16 },
+  brandMark: { width: 28, height: 28, borderRadius: 8, backgroundColor: COLORS.purple, alignItems: 'center', justifyContent: 'center' },
+  brandMarkText: { color: COLORS.white, fontWeight: '900', fontSize: 16 },
   brandName: { color: COLORS.ink, fontSize: 12, fontWeight: '800' },
-  avatarButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.paleGreen, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: COLORS.deepGreen, fontWeight: '800', fontSize: 14 },
-  tabBar: { flexDirection: 'row', gap: 8, paddingHorizontal: 24, paddingBottom: 14, borderBottomWidth: 1, borderColor: COLORS.line },
-  tab: { paddingVertical: 9, paddingHorizontal: 15, borderRadius: 20 },
-  tabActive: { backgroundColor: COLORS.ink },
+  avatarButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.palePurple, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { color: COLORS.deepPurple, fontWeight: '800', fontSize: 14 },
+  tabBar: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, paddingHorizontal: 24, paddingBottom: 14, borderBottomWidth: 1, borderColor: COLORS.line },
+  tab: { flex: 1, paddingVertical: 9, paddingHorizontal: 10, borderRadius: 20, alignItems: 'center' },
+  tabActive: { backgroundColor: COLORS.deepPurple },
   tabText: { color: COLORS.muted, fontSize: 13, fontWeight: '700' },
   tabTextActive: { color: COLORS.white },
   pageContent: { paddingHorizontal: 24, paddingTop: 25, paddingBottom: 36 },
   pageHeading: { marginBottom: 23 },
-  eyebrow: { color: COLORS.deepGreen, fontSize: 10, fontWeight: '800', marginBottom: 9 },
+  eyebrow: { color: COLORS.deepPurple, fontSize: 10, fontWeight: '800', marginBottom: 9 },
   pageTitle: { color: COLORS.ink, fontSize: 36, fontWeight: '800', marginBottom: 5 },
   bodyCopy: { color: COLORS.muted, fontSize: 14, lineHeight: 21 },
-  startPanel: { backgroundColor: COLORS.deepGreen, borderRadius: 8, padding: 20, gap: 22 },
+  startPanel: { backgroundColor: COLORS.deepPurple, borderRadius: 8, padding: 20, gap: 22 },
   startPanelText: { gap: 8 },
-  panelKicker: { color: COLORS.green, fontSize: 10, fontWeight: '800' },
+  panelKicker: { color: COLORS.violet, fontSize: 10, fontWeight: '800' },
   panelTitle: { color: COLORS.white, fontSize: 22, fontWeight: '800' },
-  panelBody: { color: '#D7E0D4', fontSize: 13, lineHeight: 19 },
-  primaryButton: { minHeight: 50, paddingHorizontal: 18, backgroundColor: COLORS.green, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  primaryButtonSecondary: { minHeight: 44, paddingHorizontal: 18, backgroundColor: COLORS.paleGreen, borderRadius: 6, alignItems: 'center', justifyContent: 'center', marginTop: 10, marginBottom: 8 },
+  panelBody: { color: '#E5D6FF', fontSize: 13, lineHeight: 19 },
+  primaryButton: { minHeight: 50, paddingHorizontal: 18, backgroundColor: COLORS.purple, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  primaryButtonSecondary: { minHeight: 44, paddingHorizontal: 18, backgroundColor: COLORS.palePurple, borderRadius: 6, alignItems: 'center', justifyContent: 'center', marginTop: 10, marginBottom: 8 },
   primaryButtonText: { color: COLORS.ink, fontSize: 14, fontWeight: '800' },
   disabledButton: { opacity: 0.48 },
   pressedButton: { opacity: 0.82 },
   workoutPanel: { backgroundColor: COLORS.white, borderRadius: 8, padding: 18, gap: 14, borderWidth: 1, borderColor: COLORS.line },
   sessionMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 5 },
-  counterBadge: { width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.paleGreen },
-  counterNumber: { color: COLORS.deepGreen, fontSize: 18, fontWeight: '800' },
-  counterCaption: { color: COLORS.deepGreen, fontSize: 8, fontWeight: '800' },
+  counterBadge: { width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.palePurple },
+  counterNumber: { color: COLORS.deepPurple, fontSize: 18, fontWeight: '800' },
+  counterCaption: { color: COLORS.deepPurple, fontSize: 8, fontWeight: '800' },
   fieldGroup: { gap: 7 },
   fieldLabel: { color: COLORS.ink, fontSize: 12, fontWeight: '700' },
   input: { minHeight: 48, paddingHorizontal: 13, borderWidth: 1, borderColor: COLORS.line, borderRadius: 5, color: COLORS.ink, fontSize: 15, backgroundColor: COLORS.white },
   selectorButton: { minHeight: 50, paddingHorizontal: 13, borderWidth: 1, borderColor: COLORS.line, borderRadius: 5, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   selectorText: { color: COLORS.ink, fontSize: 14, fontWeight: '600' },
   placeholder: { color: '#909991', fontWeight: '400' },
-  selectorArrow: { color: COLORS.deepGreen, fontSize: 22 },
+  selectorArrow: { color: COLORS.deepPurple, fontSize: 22 },
   measureRow: { flexDirection: 'row', gap: 12 },
   measureField: { flex: 1 },
-  timerCard: { backgroundColor: COLORS.paleOrange, borderRadius: 8, padding: 14, gap: 6 },
-  timerText: { color: COLORS.orange, fontSize: 30, fontWeight: '800' },
+  timerCard: { backgroundColor: COLORS.lavender, borderRadius: 8, padding: 14, gap: 6 },
+  timerText: { color: COLORS.deepPurple, fontSize: 30, fontWeight: '800' },
   timerButton: { alignSelf: 'flex-start', backgroundColor: COLORS.white, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6 },
-  timerButtonText: { color: COLORS.deepGreen, fontSize: 12, fontWeight: '800' },
-  referenceCard: { backgroundColor: COLORS.paleGreen, borderRadius: 8, padding: 14, gap: 5 },
-  referenceTitle: { color: COLORS.deepGreen, fontSize: 18, fontWeight: '800' },
+  timerButtonText: { color: COLORS.deepPurple, fontSize: 12, fontWeight: '800' },
+  referenceCard: { backgroundColor: COLORS.palePurple, borderRadius: 8, padding: 14, gap: 5 },
+  referenceTitle: { color: COLORS.deepPurple, fontSize: 18, fontWeight: '800' },
   referenceText: { color: COLORS.ink, fontSize: 12, lineHeight: 18 },
   finishButton: { minHeight: 42, alignItems: 'center', justifyContent: 'center' },
-  finishButtonText: { color: COLORS.deepGreen, fontSize: 13, fontWeight: '800' },
+  finishButtonText: { color: COLORS.deepPurple, fontSize: 13, fontWeight: '800' },
   notice: { color: COLORS.error, fontSize: 13, lineHeight: 19 },
   recentSection: { marginTop: 26, gap: 11 },
   sectionHeadingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   sectionTitle: { color: COLORS.ink, fontSize: 16, fontWeight: '800' },
-  linkText: { color: COLORS.deepGreen, fontSize: 12, fontWeight: '800' },
+  linkText: { color: COLORS.deepPurple, fontSize: 12, fontWeight: '800' },
   routineCard: { backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.line, borderRadius: 8, padding: 14, gap: 10 },
   routineList: { gap: 5 },
   routineItem: { color: COLORS.ink, fontSize: 12, lineHeight: 18 },
@@ -1112,14 +1191,14 @@ const styles = StyleSheet.create({
   routineExerciseSelector: { minHeight: 46, borderWidth: 1, borderColor: COLORS.line, borderRadius: 6, justifyContent: 'center', paddingHorizontal: 12 },
   sessionRow: { minHeight: 70, paddingVertical: 11, borderBottomWidth: 1, borderColor: COLORS.line, flexDirection: 'row', alignItems: 'center', gap: 14 },
   pressedRow: { opacity: 0.7 },
-  sessionDateBlock: { width: 44, height: 48, backgroundColor: COLORS.paleOrange, borderRadius: 5, alignItems: 'center', justifyContent: 'center' },
-  sessionDay: { color: COLORS.orange, fontSize: 17, fontWeight: '800' },
-  sessionMonth: { color: COLORS.orange, fontSize: 8, fontWeight: '800' },
+  sessionDateBlock: { width: 44, height: 48, backgroundColor: COLORS.lavender, borderRadius: 5, alignItems: 'center', justifyContent: 'center' },
+  sessionDay: { color: COLORS.deepPurple, fontSize: 17, fontWeight: '800' },
+  sessionMonth: { color: COLORS.deepPurple, fontSize: 8, fontWeight: '800' },
   exerciseName: { color: COLORS.ink, fontSize: 14, fontWeight: '800' },
   exerciseGroup: { color: COLORS.muted, fontSize: 12, marginTop: 3 },
   optionArrow: { color: COLORS.muted, fontSize: 23 },
   emptyState: { paddingVertical: 32, gap: 13, alignItems: 'flex-start' },
-  emptyMark: { color: COLORS.orange, fontSize: 36, fontWeight: '800' },
+  emptyMark: { color: COLORS.deepPurple, fontSize: 36, fontWeight: '800' },
   emptyTitle: { color: COLORS.ink, fontSize: 19, fontWeight: '800' },
   footerNote: { color: COLORS.muted, fontSize: 11, lineHeight: 16, marginTop: 27 },
   inlineLoader: { marginVertical: 20 },
@@ -1132,13 +1211,13 @@ const styles = StyleSheet.create({
   closeButtonText: { color: COLORS.ink, fontSize: 25, lineHeight: 28 },
   exerciseList: { marginTop: 13 },
   exerciseOption: { minHeight: 66, borderBottomWidth: 1, borderColor: COLORS.line, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  exerciseDot: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.paleGreen, alignItems: 'center', justifyContent: 'center' },
-  exerciseDotText: { color: COLORS.deepGreen, fontSize: 14, fontWeight: '800' },
+  exerciseDot: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.palePurple, alignItems: 'center', justifyContent: 'center' },
+  exerciseDotText: { color: COLORS.deepPurple, fontSize: 14, fontWeight: '800' },
   detailSetRow: { minHeight: 63, borderBottomWidth: 1, borderColor: COLORS.line, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  detailMeasure: { color: COLORS.deepGreen, fontSize: 14, fontWeight: '800' },
+  detailMeasure: { color: COLORS.deepPurple, fontSize: 14, fontWeight: '800' },
   detailReps: { minWidth: 35, color: COLORS.ink, fontSize: 14, fontWeight: '700' },
-  deleteSetButton: { marginLeft: 8, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, backgroundColor: COLORS.paleOrange },
-  deleteSetText: { color: COLORS.orange, fontWeight: '700', fontSize: 12 },
+  deleteSetButton: { marginLeft: 8, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, backgroundColor: COLORS.lavender },
+  deleteSetText: { color: COLORS.deepPurple, fontWeight: '700', fontSize: 12 },
   authContainer: { flexGrow: 1, paddingHorizontal: 26, paddingTop: 23, paddingBottom: 32 },
   authHeadingWrap: { marginTop: 56, marginBottom: 30 },
   authHeading: { color: COLORS.ink, fontSize: 37, fontWeight: '800', marginBottom: 10 },
@@ -1149,7 +1228,7 @@ const styles = StyleSheet.create({
   segmentText: { color: COLORS.muted, fontSize: 13, fontWeight: '700' },
   segmentTextActive: { color: COLORS.ink },
   authSwitch: { alignItems: 'center', paddingVertical: 9 },
-  authSwitchText: { color: COLORS.deepGreen, fontSize: 13, fontWeight: '800' },
+  authSwitchText: { color: COLORS.deepPurple, fontSize: 13, fontWeight: '800' },
 });
 
 export default App;

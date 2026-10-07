@@ -32,6 +32,7 @@ export const api = {
   register: (body) => request('/auth/register', { method: 'POST', body }),
   login: (body) => request('/auth/login', { method: 'POST', body }),
   getProfile: (token) => request('/users/me', { token }),
+  updateProfile: (token, body) => request('/users/me', { method: 'PATCH', token, body }),
   getExercises: () => request('/exercises'),
   createSession: (token, body) => request('/workout-sessions', { method: 'POST', token, body }),
   getSessions: (token) => request('/workout-sessions', { token }),
