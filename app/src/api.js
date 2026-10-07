@@ -31,6 +31,7 @@ async function request(path, { method = 'GET', token, body } = {}) {
 export const api = {
   register: (body) => request('/auth/register', { method: 'POST', body }),
   login: (body) => request('/auth/login', { method: 'POST', body }),
+  getHealth: () => request('/health'),
   getProfile: (token) => request('/users/me', { token }),
   updateProfile: (token, body) => request('/users/me', { method: 'PATCH', token, body }),
   getExercises: () => request('/exercises'),

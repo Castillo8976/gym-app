@@ -101,6 +101,7 @@ function PrimaryButton({ label, onPress, disabled, loading }) {
 function App() {
   const [token, setToken] = useState(null);
   const [user, setUser] = useState(null);
+  const [apiStatus, setApiStatus] = useState({ ok: false, database: 'unknown', message: 'Comprobando conexión...' });
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
@@ -173,6 +174,25 @@ function App() {
     setRecords(recordList || []);
     setLeagues(leagueList || []);
   }
+
+  useEffect(() => {
+    let mounted = true;
+    async function refreshHealth() {
+      try {
+        const result = await api.getHealth();
+        if (mounted) {
+          setApiStatus({ ok: !!result.ok, database: result.database || 'unknown', message: result.message || 'API disponible' });
+        }
+      } catch (error) {
+        if (mounted) {
+          setApiStatus({ ok: false, database: 'offline', message: error.message });
+        }
+      }
+    }
+    refreshHealth();
+    const timer = setInterval(refreshHealth, 30000);
+    return () => { mounted = false; clearInterval(timer); };
+  }, []);
 
   useEffect(() => {
     setProfileName(user?.name || '');
@@ -884,8 +904,14 @@ function App() {
               <View style={styles.startPanelText}>
                 <Text style={styles.panelKicker}>RESUMEN</Text>
                 <Text style={styles.panelTitle}>{Number(user?.bodyweightKg || 0).toLocaleString('es', { maximumFractionDigits: 2 })} kg</Text>
-                <Text style={styles.panelBody}>{user?.gender === 'female' ? 'Perfil femenino' : 'Perfil masculino'} · {ranks.length} rangos activos</Text>
+                <Text style={styles.panelBody}>{user?.gender === 'female' ? 'Perfil femenino' : 'Perfil masculino'} · {apiStatus.ok ? 'API conectada' : 'API sin conexión'} · {ranks.length} rangos activos</Text>
               </View>
+            </View>
+
+            <View style={[styles.workoutPanel, apiStatus.ok ? styles.statusOk : styles.statusWarn]}>
+              <Text style={styles.panelKicker}>ESTADO DEL BACKEND</Text>
+              <Text style={styles.referenceTitle}>{apiStatus.ok ? 'Conexión correcta' : 'Sin conexión'}</Text>
+              <Text style={styles.referenceText}>{apiStatus.message || 'No se ha podido validar la conexión con la API.'}</Text>
             </View>
 
             <View style={styles.workoutPanel}>
@@ -1175,6 +1201,8 @@ const styles = StyleSheet.create({
   timerButton: { alignSelf: 'flex-start', backgroundColor: COLORS.white, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6 },
   timerButtonText: { color: COLORS.deepPurple, fontSize: 12, fontWeight: '800' },
   referenceCard: { backgroundColor: COLORS.palePurple, borderRadius: 8, padding: 14, gap: 5 },
+  statusOk: { backgroundColor: '#EAF9EF', borderColor: '#CFE9D5' },
+  statusWarn: { backgroundColor: '#FDF0F7', borderColor: '#F5D4E6' },
   referenceTitle: { color: COLORS.deepPurple, fontSize: 18, fontWeight: '800' },
   referenceText: { color: COLORS.ink, fontSize: 12, lineHeight: 18 },
   finishButton: { minHeight: 42, alignItems: 'center', justifyContent: 'center' },

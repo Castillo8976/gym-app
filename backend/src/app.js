@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const { sequelize } = require('./models');
 
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
@@ -21,7 +22,14 @@ app.use('/api/workout-sessions', workoutSessionRoutes);
 app.use('/api/routines', routineRoutes);
 app.use('/api/leagues', leagueRoutes);
 
-app.get('/api/health', (req, res) => res.json({ ok: true }));
+app.get('/api/health', async (req, res) => {
+  try {
+    await sequelize.authenticate();
+    res.json({ ok: true, database: 'connected' });
+  } catch (error) {
+    res.status(503).json({ ok: false, database: 'offline', message: error.message });
+  }
+});
 
 // Manejador de errores centralizado — todas las respuestas de error
 // siguen el formato definido en 04-api-endpoints.md
