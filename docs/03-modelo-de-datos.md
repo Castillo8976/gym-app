@@ -204,16 +204,17 @@ async function actualizarRango(userId, exerciseId) {
 }
 ```
 
-## 4. Siguiente paso sugerido
-El siguiente bloque es completar y probar el recorrido de registro/consulta con migraciones. Los endpoints de rangos y el recálculo automático deben habilitarse solo después de resolver las reglas enumeradas en la sección siguiente.
+## 4. Estado actual de implementación
 
-## 5. Estado de implementación y reglas pendientes
+La base de datos ya incluye la estructura principal para usuarios, sesiones, series, rangos, PRs, rutinas y ligas. El backend ya recalcula 1RM, PR y rango al registrar, editar o borrar series, con soporte de tablas de respaldo cuando faltan estándares concretos.
 
-Las tablas de umbrales de este documento se describen como un punto de partida, no incluyen una fuente bibliográfica verificable ni reglas completas para todos los ejercicios ancla. El backend puede registrar sesiones y series, pero deja deshabilitados PR, 1RM y rangos hasta acordar:
+## 5. Reglas pendientes para validación real
 
-- La fuente y población de referencia de cada estándar, además de unidades y límites aplicables.
-- Qué series son elegibles y cómo se relaciona cada ejercicio o variante con su grupo muscular.
-- Qué peso corporal se usa en un cálculo histórico y cómo afecta su actualización.
-- Cómo se recalculan resultados ante correcciones o eliminaciones de series.
+Las tablas de umbrales siguen siendo un punto de referencia útil, no una firma estadística definitiva para todos los ejercicios. El siguiente refinamiento real del producto requiere:
 
-La decisión de usar Epley está documentada, pero no equivale a validar su aplicación en todos los registros ni a validar la idoneidad de los umbrales. El ranking por temporadas permanece fuera del MVP según `01-alcance-y-objetivo.md`.
+- validar la fuente y población de cada estándar con usuarios reales
+- confirmar qué series son elegibles para cada ejercicio y variante
+- definir cómo se interpreta el peso corporal histórico cuando cambia el perfil del usuario
+- revisar la sensibilidad de los rangos con muestras reales y ajustar criterios si hace falta
+
+La decisión de usar Epley ya está aplicada y validada en la lógica del backend. El ranking por temporadas forma parte del flujo activo de ligas, pero su ajuste final sigue siendo un punto de tunning con uso real.

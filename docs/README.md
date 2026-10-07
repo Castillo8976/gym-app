@@ -43,8 +43,9 @@ docs/
 ## Estado actual del proyecto
 
 - Fase 1: registro de entrenamiento, PRs y rangos por grupo muscular validados en backend
-- Fase 2: plantillas de rutina y ligas/temporadas implementadas en backend + aplicación
-- Bloque siguiente: validación de datos históricos, ajustes de estándares y revisión UX con pasos de edición/eliminación de series
+- Fase 2: plantillas de rutina, ligas/temporadas y flujo completo de historial ya implementados en backend + app
+- Fase 3: perfil editable, estado de conexión en vivo con la API, refinamiento UX y tema visual morado aplicado a la interfaz
+- Bloque siguiente: validación con MySQL/MariaDB real, datos históricos de usuarios y tuneo del sistema de estándares con uso real
 
 ## Estructura de proyecto
 

@@ -1,36 +1,59 @@
 # Pantallas y Flujo de Usuario
 
-Borrador inicial — stack confirmado: React Native con Expo (ver `DECISIONES.md`, Decisión #05). El primer recorrido móvil conectado cubre registro/inicio de sesión, registro de sesión y series, y consulta de historial; los rangos no se muestran hasta aprobar sus reglas.
+El recorrido actual del producto ya cubre la base funcional del entrenamiento con métricas, rutinas, ligas y perfil personal. La app usa React Native + Expo, la API autenticada y la base de datos relacional con MySQL/MariaDB.
 
 ## Flujo principal
 
 ```
-Registro/Login
+Registro / Login
       │
       ▼
-Onboarding (peso corporal, género, edad)
+Dashboard
       │
-      ▼
-  Dashboard ──────────────┬─────────────────┬──────────────┐
-      │                   │                 │              │
-      ▼                   ▼                 ▼              ▼
-Registrar sesión    Ver rangos por    Historial /      Perfil /
-(elegir ejercicio,   grupo muscular   PRs por          configuración
- peso, reps)          (5 barras)      ejercicio
+      ├── Entrenar
+      │      ├── iniciar sesión
+      │      ├── seleccionar ejercicio
+      │      ├── registrar serie
+      │      └── finalizar entrenamiento
+      │
+      ├── Historial
+      │      ├── lista de sesiones
+      │      └── detalle con series y eliminación
+      │
+      ├── Perfil
+      │      ├── editar nombre y peso corporal
+      │      ├── ver estado del backend
+      │      └── consultar rangos y PRs
+      │
+      ├── Rutinas
+      │      ├── crear plantilla
+      │      └── aplicarla a una sesión
+      │
+      └── Ligas
+             ├── crear temporada
+             ├── unirse a liga
+             └── ver ranking
 ```
 
-## Pantallas del MVP
+## Pantallas actuales
 
-1. **Registro / Login** — email + password
-2. **Onboarding** — peso corporal, género, edad (necesarios para calcular el ratio de fuerza)
-3. **Dashboard** — resumen de los 5 rangos por grupo muscular, acceso rápido a "Registrar sesión"
-4. **Registrar sesión** — seleccionar ejercicio, ingresar peso/reps por serie, guardar
-5. **Detalle de rango por grupo muscular** — muestra el rango actual, cuánto falta para el siguiente, y el ejercicio ancla que lo determina
-6. **Historial** — lista de sesiones pasadas, con filtro por ejercicio
-7. **Perfil** — editar peso corporal, cerrar sesión
+1. **Registro / Login** — registro con email, contraseña, género, peso y creación de cuenta.
+2. **Dashboard / Inicio** — resumen de la sesión actual, accesos a entrenamiento, historial, perfil, ligas y rutinas.
+3. **Entrenar** — seleccionar ejercicio, ingresar carga, repeticiones, tipo de serie, descanso y guardar cada una.
+4. **Historial** — listar sesiones pasadas y consultar el detalle de series con acción de borrado.
+5. **Perfil** — editar nombre y peso corporal, consultar resumen de rangos y PRs, validar estado de conexión con la API.
+6. **Rutinas** — crear plantillas con ejercicios, objetivos y aplicarlas a una nueva sesión.
+7. **Ligas** — crear temporadas, unirse a una liga y consultar el ranking por volumen total.
 
-## Fuera del MVP
+## Estados del producto
 
-- Pantalla de ligas/ranking social
-- Pantalla de rutinas predefinidas
-- Notificaciones push de estancamiento
+- El flujo principal ya queda operativo en la app y en la API.
+- La interfaz resuelve una base funcional que puede ser validada con usuarios reales.
+- Los componentes sociales y de gamificación se mantienen dentro del alcance competitivo del proyecto, no como red social genérica.
+
+## Ampliaciones futuras
+
+- notificaciones push y recordatorios de entrenamiento
+- panel de progreso más visual con tendencias históricas
+- validación de estándares por sexo y ejercicio con usuarios reales
+- preparación para despliegue en tiendas y EAS build
