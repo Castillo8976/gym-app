@@ -1,6 +1,6 @@
 # App móvil - Gym App
 
-Cliente React Native con Expo para Android e iOS. El flujo actual permite crear una cuenta o iniciar sesión, consultar ejercicios, crear una sesión, guardar series en kilogramos y repeticiones, y ver el historial con el detalle de sus series. No calcula ni muestra rangos o 1RM.
+Cliente React Native con Expo para Android e iOS. El flujo actual ya cubre registro, entrenamiento, historial, PRs, rangos, rutinas, ligas, perfil editable y validación del estado del backend.
 
 ## Requisitos
 
@@ -52,15 +52,17 @@ npm run dev-client
 
 `expo run:ios` requiere macOS. EAS Build no está configurado en esta entrega; la preparación de cuentas, firma y builds de tienda se documentará aparte y requerirá autorización.
 
-## Recorrido
+## Recorrido actual
 
-1. Abre la app en el development build y crea una cuenta con nombre, correo, contraseña, género del perfil y peso corporal en kg, o inicia sesión.
-2. Pulsa **Empezar entrenamiento**.
-3. Elige un ejercicio del catálogo y registra la carga en kg y las repeticiones.
-4. Guarda cada serie; el contador confirma el guardado y **Finalizar entrenamiento** cierra la sesión.
-5. Abre **Historial** y toca una sesión para consultar sus series.
+1. Abre la app y crea una cuenta o inicia sesión.
+2. Pulsa **Empezar entrenamiento** y registra series con carga, repeticiones y tipo de serie.
+3. Finaliza la sesión y consulta el historial.
+4. Revisa tus **Rangos** y **PRs**.
+5. Crea o aplica **Rutinas**.
+6. Crea o entra en **Ligas**.
+7. En el **Perfil** actualiza peso corporal y comprueba el estado de conexión del backend.
 
-El backend usa JWT; el cliente guarda el token con `expo-secure-store`. Cada usuario ve únicamente sus propias sesiones. El endpoint guarda cada serie individualmente, por lo que si se interrumpe la red durante una sesión se pueden haber persistido solo algunas series; consulta el historial antes de reintentar.
+El backend usa JWT; el cliente guarda el token con `expo-secure-store`. Cada usuario solo ve sus propias sesiones.
 
 ## Comprobaciones
 
@@ -69,4 +71,4 @@ npx expo install --check
 npx expo-doctor
 ```
 
-La validación completa requiere conectar el development build a una instancia local de MySQL/MariaDB migrada y sembrada. Los rangos permanecen deshabilitados hasta definir sus reglas.
+La validación completa requiere una instancia local de MySQL/MariaDB migrada y el backend activo; la app también incluye una comprobación de salud del backend para validar el estado de la API.
