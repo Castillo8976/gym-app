@@ -17,3 +17,13 @@ test('rebuilds the strongest set summary per exercise when a set is edited or re
     { exerciseId: 2, estimated1rm: 80 },
   ]);
 });
+
+test('caps repetitions when rebuilding PR summaries from historical sets', () => {
+  const bestByExercise = summarizeBestPRsFromSets([
+    { exerciseId: 7, weightKg: 100, reps: 30 },
+  ]);
+
+  assert.deepEqual(bestByExercise, [
+    { exerciseId: 7, estimated1rm: 140 },
+  ]);
+});

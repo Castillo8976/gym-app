@@ -5,25 +5,25 @@ async function up(queryInterface, Sequelize) {
     type: DataTypes.ENUM('warmup', 'normal', 'failure', 'drop_set'),
     allowNull: false,
     defaultValue: 'normal',
-  }).catch(() => undefined);
+  });
 
   await queryInterface.addColumn('workout_sets', 'rest_seconds', {
     type: DataTypes.INTEGER,
     allowNull: true,
     defaultValue: null,
-  }).catch(() => undefined);
+  });
 
   await queryInterface.addColumn('workout_sets', 'actual_rest_seconds', {
     type: DataTypes.INTEGER,
     allowNull: true,
     defaultValue: null,
-  }).catch(() => undefined);
+  });
 
   await queryInterface.addColumn('workout_sets', 'notes', {
     type: DataTypes.TEXT,
     allowNull: true,
     defaultValue: null,
-  }).catch(() => undefined);
+  });
 
   await queryInterface.createTable('user_rest_preferences', {
     id: {
@@ -47,7 +47,7 @@ async function up(queryInterface, Sequelize) {
     fields: ['user_id'],
     type: 'unique',
     name: 'user_rest_preferences_user_unique',
-  }).catch(() => undefined);
+  });
 
   await queryInterface.createTable('exercise_plate_config', {
     id: {
@@ -70,7 +70,20 @@ async function up(queryInterface, Sequelize) {
     fields: ['user_id', 'plate_kg'],
     type: 'unique',
     name: 'exercise_plate_config_user_plate_unique',
-  }).catch(() => undefined);
+  });
 }
 
-module.exports = { up };
+async function down(queryInterface) {
+  await queryInterface.removeConstraint('exercise_plate_config', 'exercise_plate_config_user_plate_unique');
+  await queryInterface.dropTable('exercise_plate_config');
+
+  await queryInterface.removeConstraint('user_rest_preferences', 'user_rest_preferences_user_unique');
+  await queryInterface.dropTable('user_rest_preferences');
+
+  await queryInterface.removeColumn('workout_sets', 'notes');
+  await queryInterface.removeColumn('workout_sets', 'actual_rest_seconds');
+  await queryInterface.removeColumn('workout_sets', 'rest_seconds');
+  await queryInterface.removeColumn('workout_sets', 'set_type');
+}
+
+module.exports = { up, down };

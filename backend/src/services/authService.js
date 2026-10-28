@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const { User } = require('../models');
 
 const SALT_ROUNDS = 10;
+const DUMMY_PASSWORD_HASH = '$2b$10$2QVoABG.q0S2Bz8V5MzdP.0Ejf3N6A9x6d4R4pqco3EQAOEjun9w2';
 
 async function registrarUsuario({ name, email, password, gender, birthDate, bodyweightKg }) {
   const existente = await User.findOne({ where: { email } });
@@ -27,14 +28,9 @@ async function registrarUsuario({ name, email, password, gender, birthDate, body
 
 async function login({ email, password }) {
   const user = await User.findOne({ where: { email } });
-  if (!user) {
-    const error = new Error('Credenciales inválidas');
-    error.status = 401;
-    throw error;
-  }
-
-  const passwordValida = await bcrypt.compare(password, user.passwordHash);
-  if (!passwordValida) {
+  const passwordHash = user?.passwordHash || DUMMY_PASSWORD_HASH;
+  const passwordValida = await bcrypt.compare(password, passwordHash);
+  if (!user || !passwordValida) {
     const error = new Error('Credenciales inválidas');
     error.status = 401;
     throw error;

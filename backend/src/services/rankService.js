@@ -1,6 +1,7 @@
 const { Exercise, StrengthStandard, PersonalRecord, UserRank, User, WorkoutSet, WorkoutSession } = require('../models');
 
 const RANK_ORDER = ['bronce', 'plata', 'oro', 'platino', 'diamante'];
+const MAX_REPS_FOR_1RM = 12;
 
 function resolveHighestRank(ranks = []) {
   return ranks.reduce((highest, rank) => (
@@ -37,7 +38,12 @@ function normalizeExerciseName(value) {
 
 function getExerciseStandardThresholds(exerciseName, gender) {
   const normalized = normalizeExerciseName(exerciseName);
-  const table = DEFAULT_STANDARDS[normalized] || DEFAULT_STANDARDS['press de banca'];
+  const table = DEFAULT_STANDARDS[normalized];
+  if (!table) {
+    const error = new Error(`No existen estándares de fuerza configurados para "${exerciseName}"`);
+    error.status = 422;
+    throw error;
+  }
   const normalizedGender = gender === 'female' ? 'female' : 'male';
   const mapping = table[normalizedGender] || table.male;
 
@@ -73,7 +79,7 @@ function summarizeBestPRsFromSets(sets = []) {
     if (!Number.isFinite(weightKg) || !Number.isFinite(reps) || weightKg <= 0 || reps <= 0) continue;
 
     const exerciseId = Number(set.exerciseId);
-    const estimated1rm = Number((weightKg * (1 + reps / 30)).toFixed(2));
+    const estimated1rm = Number(estimar1RM(weightKg, reps).toFixed(2));
     const previous = bestByExercise.get(exerciseId) || 0;
     if (estimated1rm > previous) {
       bestByExercise.set(exerciseId, estimated1rm);
@@ -90,18 +96,21 @@ function summarizeBestPRsFromSets(sets = []) {
  * a partir de una serie de peso x repeticiones.
  */
 function estimar1RM(pesoKg, reps) {
-  return pesoKg * (1 + reps / 30);
+  const normalizedReps = Number.isFinite(Number(reps)) ? Math.max(1, Math.floor(Number(reps))) : 1;
+  const cappedReps = Math.min(normalizedReps, MAX_REPS_FOR_1RM);
+  return pesoKg * (1 + cappedReps / 30);
 }
 
 /**
  * Decisión #01: el ratio (1RM estimado / peso corporal) es lo que se
  * compara contra los estándares — no el peso absoluto.
  */
-async function calcularRatio(userId, exerciseId) {
-  const user = await User.findByPk(userId);
+async function calcularRatio(userId, exerciseId, transaction) {
+  const user = await User.findByPk(userId, { transaction });
   const mejorPR = await PersonalRecord.findOne({
     where: { userId, exerciseId },
     order: [['estimated1rm', 'DESC']],
+    transaction,
   });
 
   if (!user || !mejorPR) return null;
@@ -113,15 +122,21 @@ async function calcularRatio(userId, exerciseId) {
  * Compara el ratio contra la tabla de estándares del ejercicio (por género)
  * y devuelve el rango más alto alcanzado.
  */
-async function calcularRangoPorRatio(exerciseId, gender, ratio) {
-  const exercise = await Exercise.findByPk(exerciseId);
+async function calcularRangoPorRatio(exerciseId, gender, ratio, transaction) {
+  const exercise = await Exercise.findByPk(exerciseId, { transaction });
+  if (!exercise) {
+    const error = new Error(`No se encontró el ejercicio ${exerciseId} para calcular el rango`);
+    error.status = 400;
+    throw error;
+  }
   const estandares = await StrengthStandard.findAll({
     where: { exerciseId, gender },
     order: [['bodyweightRatio', 'ASC']],
+    transaction,
   });
 
   if (!estandares.length) {
-    return resolveRankForRatio(ratio, gender, exercise?.name || 'Press de banca');
+    return resolveRankForRatio(ratio, gender, exercise.name);
   }
 
   let rango = 'bronce';
@@ -138,18 +153,19 @@ async function calcularRangoPorRatio(exerciseId, gender, ratio) {
  * no en cada set — y solo si el ejercicio es "ancla" de su grupo muscular
  * (Decisión #02: rango por grupo muscular, no un rango general único).
  */
-async function recalcularRangoGrupo(userId, muscleGroupId) {
-  const user = await User.findByPk(userId);
+async function recalcularRangoGrupo(userId, muscleGroupId, transaction) {
+  const user = await User.findByPk(userId, { transaction });
   if (!user) return null;
 
   const anchorExercises = await Exercise.findAll({
     where: { muscleGroupId, isAnchor: true },
+    transaction,
   });
   const ranks = [];
   for (const exercise of anchorExercises) {
-    const ratio = await calcularRatio(userId, exercise.id);
+    const ratio = await calcularRatio(userId, exercise.id, transaction);
     if (ratio !== null) {
-      ranks.push(await calcularRangoPorRatio(exercise.id, user.gender, ratio));
+      ranks.push(await calcularRangoPorRatio(exercise.id, user.gender, ratio, transaction));
     }
   }
   const nuevoRango = resolveHighestRank(ranks);
@@ -157,20 +173,21 @@ async function recalcularRangoGrupo(userId, muscleGroupId) {
   const [userRank] = await UserRank.findOrCreate({
     where: { userId, muscleGroupId },
     defaults: { currentRank: nuevoRango },
+    transaction,
   });
 
   if (userRank.currentRank !== nuevoRango) {
     userRank.currentRank = nuevoRango;
-    await userRank.save();
+    await userRank.save({ transaction });
   }
 
   return userRank;
 }
 
-async function recalcularRangosUsuario(userId) {
+async function recalcularRangosUsuario(userId, transaction) {
   const [userRanks, anchorExercises] = await Promise.all([
-    UserRank.findAll({ where: { userId }, attributes: ['muscleGroupId'] }),
-    Exercise.findAll({ where: { isAnchor: true }, attributes: ['id', 'muscleGroupId'] }),
+    UserRank.findAll({ where: { userId }, attributes: ['muscleGroupId'], transaction }),
+    Exercise.findAll({ where: { isAnchor: true }, attributes: ['id', 'muscleGroupId'], transaction }),
   ]);
   const exerciseById = new Map(anchorExercises.map((exercise) => [Number(exercise.id), exercise]));
   const muscleGroupIds = new Set(userRanks.map((rank) => Number(rank.muscleGroupId)));
@@ -179,6 +196,7 @@ async function recalcularRangosUsuario(userId) {
     const personalRecords = await PersonalRecord.findAll({
       where: { userId, exerciseId: [...exerciseById.keys()] },
       attributes: ['exerciseId'],
+      transaction,
     });
     for (const record of personalRecords) {
       const exercise = exerciseById.get(Number(record.exerciseId));
@@ -187,39 +205,50 @@ async function recalcularRangosUsuario(userId) {
   }
 
   for (const muscleGroupId of muscleGroupIds) {
-    await recalcularRangoGrupo(userId, muscleGroupId);
+    await recalcularRangoGrupo(userId, muscleGroupId, transaction);
   }
 }
 
-async function actualizarRangoSiAplica(userId, exerciseId) {
-  const exercise = await Exercise.findByPk(exerciseId);
+async function actualizarRangoSiAplica(userId, exerciseId, transaction) {
+  const exercise = await Exercise.findByPk(exerciseId, { transaction });
   if (!exercise || !exercise.isAnchor) return null;
-  return recalcularRangoGrupo(userId, exercise.muscleGroupId);
+  return recalcularRangoGrupo(userId, exercise.muscleGroupId, transaction);
 }
 
 /**
  * Registra un nuevo set y, si supera el PR anterior, crea el PersonalRecord
  * y dispara el recálculo de rango.
  */
-async function registrarSetYActualizarPR(userId, exerciseId, pesoKg, reps) {
+async function registrarSetYActualizarPR(userId, exerciseId, pesoKg, reps, transaction) {
+  if (!transaction) {
+    const error = new Error('registrarSetYActualizarPR requiere una transacción activa');
+    error.status = 500;
+    throw error;
+  }
   const nuevoEstimado = estimar1RM(pesoKg, reps);
 
   const mejorPRActual = await PersonalRecord.findOne({
     where: { userId, exerciseId },
     order: [['estimated1rm', 'DESC']],
+    transaction,
   });
 
   const esNuevoPR = !mejorPRActual || nuevoEstimado > Number(mejorPRActual.estimated1rm);
 
   if (esNuevoPR) {
-    await PersonalRecord.create({ userId, exerciseId, estimated1rm: nuevoEstimado });
-    await actualizarRangoSiAplica(userId, exerciseId);
+    await PersonalRecord.create({ userId, exerciseId, estimated1rm: nuevoEstimado }, { transaction });
+    await actualizarRangoSiAplica(userId, exerciseId, transaction);
   }
 
   return { estimated1rm: Number(nuevoEstimado.toFixed(2)), esNuevoPR };
 }
 
-async function recalcUserPersonalRecords(userId, exerciseId = null) {
+async function recalcUserPersonalRecords(userId, exerciseId = null, transaction) {
+  if (!transaction) {
+    const error = new Error('recalcUserPersonalRecords requiere una transacción activa');
+    error.status = 500;
+    throw error;
+  }
   const where = exerciseId ? { exerciseId } : {};
   const sets = await WorkoutSet.findAll({
     where,
@@ -229,6 +258,7 @@ async function recalcUserPersonalRecords(userId, exerciseId = null) {
       attributes: ['id', 'userId'],
       required: true,
     }],
+    transaction,
   });
 
   const targets = new Set();
@@ -245,23 +275,23 @@ async function recalcUserPersonalRecords(userId, exerciseId = null) {
     const summary = summarizeBestPRsFromSets(exerciseSets);
     const bestEntry = summary[0] || null;
 
-    await PersonalRecord.destroy({ where: { userId, exerciseId: targetExerciseId } });
+    await PersonalRecord.destroy({ where: { userId, exerciseId: targetExerciseId }, transaction });
     if (bestEntry) {
       await PersonalRecord.create({
         userId,
         exerciseId: targetExerciseId,
         estimated1rm: Number(bestEntry.estimated1rm),
-      });
+      }, { transaction });
     }
   }
 
   const muscleGroupIds = new Set();
   for (const targetExerciseId of targets) {
-    const exercise = await Exercise.findByPk(targetExerciseId);
+    const exercise = await Exercise.findByPk(targetExerciseId, { transaction });
     if (exercise?.isAnchor) muscleGroupIds.add(Number(exercise.muscleGroupId));
   }
   for (const muscleGroupId of muscleGroupIds) {
-    await recalcularRangoGrupo(userId, muscleGroupId);
+    await recalcularRangoGrupo(userId, muscleGroupId, transaction);
   }
 
   return true;
@@ -272,6 +302,7 @@ module.exports = {
   getExerciseStandardThresholds,
   resolveRankForRatio,
   resolveHighestRank,
+  MAX_REPS_FOR_1RM,
   estimar1RM,
   calcularRatio,
   calcularRangoPorRatio,

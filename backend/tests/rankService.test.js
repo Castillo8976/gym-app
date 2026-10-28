@@ -4,6 +4,8 @@ const {
   resolveRankForRatio,
   getExerciseStandardThresholds,
   resolveHighestRank,
+  estimar1RM,
+  MAX_REPS_FOR_1RM,
 } = require('../src/services/rankService');
 
 test('maps ratio values to the documented strength rank thresholds', () => {
@@ -30,6 +32,16 @@ test('returns the fallback standard table for anchor exercises when no database 
     platino: 1.4,
     diamante: 1.75,
   });
+});
+
+test('caps reps used for Epley estimation to avoid inflated 1RM values', () => {
+  const estimatedWithCap = estimar1RM(100, MAX_REPS_FOR_1RM);
+  assert.equal(estimar1RM(100, 30), estimatedWithCap);
+  assert.equal(Number(estimatedWithCap.toFixed(2)), 140);
+});
+
+test('throws when asking code-based standards for an unknown exercise', () => {
+  assert.throws(() => getExerciseStandardThresholds('Remo con cable', 'male'), { status: 422 });
 });
 
 test('recomputes a group rank from its current anchor exercise ranks', () => {
