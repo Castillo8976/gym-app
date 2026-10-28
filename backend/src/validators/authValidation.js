@@ -1,3 +1,5 @@
+const { isCalendarDate } = require('./dateValidation');
+
 function badRequest(message) {
   const error = new Error(message);
   error.status = 400;
@@ -70,12 +72,6 @@ function validateLoginPayload(payload) {
     email: normalizeEmail(payload.email),
     password: validatePassword(payload.password, false),
   };
-}
-
-function isCalendarDate(value) {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const date = new Date(`${value}T00:00:00.000Z`);
-  return !Number.isNaN(date.valueOf()) && date.toISOString().slice(0, 10) === value;
 }
 
 module.exports = { validateLoginPayload, validateRegistrationPayload };

@@ -1,3 +1,5 @@
+const { isCalendarDate } = require('./dateValidation');
+
 function badRequest(message) {
   const error = new Error(message);
   error.status = 400;
@@ -8,10 +10,11 @@ function isObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-function isCalendarDate(value) {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const date = new Date(`${value}T00:00:00.000Z`);
-  return !Number.isNaN(date.valueOf()) && date.toISOString().slice(0, 10) === value;
+function getLocalDateString(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function validateCreateSessionPayload(payload) {
@@ -25,7 +28,7 @@ function validateCreateSessionPayload(payload) {
   }
 
   return {
-    sessionDate: payload.sessionDate || new Date().toISOString().slice(0, 10),
+    sessionDate: payload.sessionDate || getLocalDateString(),
     notes: payload.notes ?? null,
   };
 }

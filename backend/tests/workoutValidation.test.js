@@ -12,6 +12,13 @@ const {
   validateRoutineTemplatePayload,
   validateRoutineTemplateExercisePayload,
 } = require('../src/validators/routineValidation');
+const { validateLeaguePayload } = require('../src/validators/leagueValidation');
+const {
+  validateRestPreferencesPayload,
+  validateUpdateMePayload,
+} = require('../src/validators/userValidation');
+const routineController = require('../src/controllers/routineController');
+const { WorkoutTemplate } = require('../src/models');
 
 test('accepts a valid session date and optional notes', () => {
   assert.deepEqual(
@@ -20,9 +27,11 @@ test('accepts a valid session date and optional notes', () => {
   );
 });
 
-test('defaults a missing session date and notes', () => {
+test('defaults a missing session date and notes to the local calendar date', () => {
   const payload = validateCreateSessionPayload({});
-  assert.match(payload.sessionDate, /^\d{4}-\d{2}-\d{2}$/);
+  const now = new Date();
+  const expected = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  assert.equal(payload.sessionDate, expected);
   assert.equal(payload.notes, null);
 });
 
@@ -151,7 +160,77 @@ test('accepts valid routine template metadata and exercise rows', () => {
   );
 });
 
+test('listRoutines uses req.userId for the authenticated user scope', async () => {
+  const originalFindAll = WorkoutTemplate.findAll;
+  WorkoutTemplate.findAll = async ({ where }) => {
+    assert.deepEqual(where, { userId: 42 });
+    return [];
+  };
+
+  try {
+    await routineController.listRoutines(
+      { userId: 42 },
+      { json: (value) => assert.deepEqual(value, []) },
+      () => { throw new Error('next should not be called'); }
+    );
+  } finally {
+    WorkoutTemplate.findAll = originalFindAll;
+  }
+});
+
 test('rejects invalid routine template fields', () => {
   assert.throws(() => validateRoutineTemplatePayload({ name: '', routineType: 'invalid' }), { status: 400 });
   assert.throws(() => validateRoutineTemplateExercisePayload({ exerciseId: 0, position: 0, targetSets: 0, targetReps: 0 }), { status: 400 });
+});
+
+test('validates profile updates and normalizes the name', () => {
+  assert.deepEqual(
+    validateUpdateMePayload({ name: ' Ana ', bodyweightKg: 62.5 }),
+    { name: 'Ana', bodyweightKg: 62.5 }
+  );
+  assert.throws(() => validateUpdateMePayload({}), { status: 400 });
+  assert.throws(() => validateUpdateMePayload(null), { status: 400 });
+  assert.throws(() => validateUpdateMePayload({ name: '  ' }), { status: 400 });
+  assert.throws(() => validateUpdateMePayload({ name: 'A'.repeat(101) }), { status: 400 });
+  assert.throws(() => validateUpdateMePayload({ bodyweightKg: 0 }), { status: 400 });
+  assert.throws(() => validateUpdateMePayload({ bodyweightKg: 1000 }), { status: 400 });
+  assert.throws(() => validateUpdateMePayload({ bodyweightKg: 62.123 }), { status: 400 });
+  assert.throws(() => validateUpdateMePayload({ email: 'ana@example.com' }), { status: 400 });
+});
+
+test('validates rest preference updates as integer seconds from 0 to 600', () => {
+  assert.deepEqual(
+    validateRestPreferencesPayload({ defaultRestSeconds: 0, defaultWarmupRestSeconds: 600 }),
+    { defaultRestSeconds: 0, defaultWarmupRestSeconds: 600 }
+  );
+  assert.deepEqual(
+    validateRestPreferencesPayload({ defaultRestSeconds: 90 }),
+    { defaultRestSeconds: 90 }
+  );
+  assert.throws(() => validateRestPreferencesPayload({}), { status: 400 });
+  assert.throws(() => validateRestPreferencesPayload(null), { status: 400 });
+  assert.throws(() => validateRestPreferencesPayload({ defaultRestSeconds: -1 }), { status: 400 });
+  assert.throws(() => validateRestPreferencesPayload({ defaultRestSeconds: 601 }), { status: 400 });
+  assert.throws(() => validateRestPreferencesPayload({ defaultRestSeconds: 1.5 }), { status: 400 });
+  assert.throws(() => validateRestPreferencesPayload({ defaultRestSeconds: '90' }), { status: 400 });
+  assert.throws(() => validateRestPreferencesPayload({ extra: 90 }), { status: 400 });
+});
+
+test('validates league season dates as real calendar dates', () => {
+  assert.deepEqual(
+    validateLeaguePayload({
+      name: ' Liga Octubre ',
+      seasonStart: '2026-10-01',
+      seasonEnd: '2026-10-31',
+    }),
+    { name: 'Liga Octubre', seasonStart: '2026-10-01', seasonEnd: '2026-10-31' }
+  );
+  assert.throws(() => validateLeaguePayload({ name: 'Liga', seasonStart: '2026-02-31', seasonEnd: '2026-03-01' }), { status: 400 });
+  assert.throws(() => validateLeaguePayload({ name: 'Liga', seasonStart: '2026-10-02', seasonEnd: '2026-10-01' }), { status: 400 });
+  assert.equal(
+    validateLeaguePayload({ name: 'Liga', seasonStart: '2026-10-01', seasonEnd: '2026-10-01' }).seasonEnd,
+    '2026-10-01'
+  );
+  assert.throws(() => validateLeaguePayload({ name: 'L'.repeat(101), seasonStart: '2026-10-01', seasonEnd: '2026-10-31' }), { status: 400 });
+  assert.throws(() => validateLeaguePayload([]), { status: 400 });
 });

@@ -27,3 +27,14 @@ test('caps repetitions when rebuilding PR summaries from historical sets', () =>
     { exerciseId: 7, estimated1rm: 140 },
   ]);
 });
+
+test('excludes warmup sets when rebuilding PR summaries', () => {
+  const bestByExercise = summarizeBestPRsFromSets([
+    { exerciseId: 8, weightKg: 120, reps: 8, setType: 'warmup' },
+    { exerciseId: 8, weightKg: 80, reps: 8, setType: 'normal' },
+  ]);
+
+  assert.deepEqual(bestByExercise, [
+    { exerciseId: 8, estimated1rm: 101.33 },
+  ]);
+});

@@ -1,4 +1,4 @@
-const { WorkoutSession, WorkoutSet, Exercise } = require('../models');
+const { sequelize, WorkoutSession, WorkoutSet, Exercise } = require('../models');
 const {
   validateCreateSessionPayload,
   validateSetPayload,
@@ -52,37 +52,49 @@ async function getSessionDetail(req, res, next) {
 async function addSet(req, res, next) {
   try {
     const { exerciseId, weightKg, reps, setOrder, setType, restSeconds, actualRestSeconds, notes } = validateSetPayload(req.body);
-    const session = await WorkoutSession.findOne({
-      where: { id: req.params.id, userId: req.userId },
+    const result = await sequelize.transaction(async (transaction) => {
+      const session = await WorkoutSession.findOne({
+        where: { id: req.params.id, userId: req.userId },
+        transaction,
+      });
+      if (!session) {
+        const error = new Error('Sesión no encontrada');
+        error.status = 404;
+        throw error;
+      }
+
+      const exercise = await Exercise.findByPk(exerciseId, { transaction });
+      if (!exercise) {
+        const error = new Error('El ejercicio indicado no existe');
+        error.status = 400;
+        throw error;
+      }
+
+      const set = await WorkoutSet.create({
+        sessionId: session.id,
+        exerciseId,
+        weightKg,
+        reps,
+        setOrder,
+        setType,
+        restSeconds,
+        actualRestSeconds,
+        notes,
+      }, { transaction });
+
+      const calculations = await registrarSetYActualizarPR(
+        req.userId, exerciseId, weightKg, reps, transaction, setType
+      );
+      await recalculateUserLeagueVolumesForDate(req.userId, session.sessionDate, transaction);
+      return { set, calculations };
     });
-    if (!session) return res.status(404).json({ error: true, message: 'Sesión no encontrada' });
-
-    const exercise = await Exercise.findByPk(exerciseId);
-    if (!exercise) {
-      return res.status(400).json({ error: true, message: 'El ejercicio indicado no existe' });
-    }
-
-    const set = await WorkoutSet.create({
-      sessionId: session.id,
-      exerciseId,
-      weightKg,
-      reps,
-      setOrder,
-      setType,
-      restSeconds,
-      actualRestSeconds,
-      notes,
-    });
-
-    const calculations = await registrarSetYActualizarPR(req.userId, exerciseId, weightKg, reps);
-    await recalculateUserLeagueVolumesForDate(req.userId, session.sessionDate);
 
     res.status(201).json({
-      set,
+      set: result.set,
       calculations: {
-        status: calculations.esNuevoPR ? 'updated' : 'stable',
-        isNewPR: calculations.esNuevoPR,
-        estimated1rm: calculations.estimated1rm,
+        status: result.calculations.esNuevoPR ? 'updated' : 'stable',
+        isNewPR: result.calculations.esNuevoPR,
+        estimated1rm: result.calculations.estimated1rm,
       },
     });
   } catch (err) {
@@ -92,40 +104,55 @@ async function addSet(req, res, next) {
 
 async function updateSet(req, res, next) {
   try {
-    const session = await WorkoutSession.findOne({
-      where: { id: req.params.id, userId: req.userId },
-    });
-    if (!session) {
-      return res.status(404).json({ error: true, message: 'Sesión no encontrada' });
-    }
-
-    const set = await WorkoutSet.findOne({
-      where: { id: req.params.setId, sessionId: session.id },
-    });
-    if (!set) {
-      return res.status(404).json({ error: true, message: 'Serie no encontrada' });
-    }
-
     const payload = validateSetPayload(req.body);
-    const previousExerciseId = Number(set.exerciseId);
+    const updatedSet = await sequelize.transaction(async (transaction) => {
+      const session = await WorkoutSession.findOne({
+        where: { id: req.params.id, userId: req.userId },
+        transaction,
+      });
+      if (!session) {
+        const error = new Error('Sesión no encontrada');
+        error.status = 404;
+        throw error;
+      }
 
-    set.exerciseId = payload.exerciseId;
-    set.weightKg = payload.weightKg;
-    set.reps = payload.reps;
-    set.setOrder = payload.setOrder;
-    set.setType = payload.setType;
-    set.restSeconds = payload.restSeconds;
-    set.actualRestSeconds = payload.actualRestSeconds;
-    set.notes = payload.notes || null;
-    await set.save();
+      const set = await WorkoutSet.findOne({
+        where: { id: req.params.setId, sessionId: session.id },
+        transaction,
+      });
+      if (!set) {
+        const error = new Error('Serie no encontrada');
+        error.status = 404;
+        throw error;
+      }
 
-    await recalcUserPersonalRecords(req.userId, previousExerciseId);
-    if (Number(payload.exerciseId) !== Number(previousExerciseId)) {
-      await recalcUserPersonalRecords(req.userId, Number(payload.exerciseId));
-    }
-    await recalculateUserLeagueVolumesForDate(req.userId, session.sessionDate);
+      const exercise = await Exercise.findByPk(payload.exerciseId, { transaction });
+      if (!exercise) {
+        const error = new Error('El ejercicio indicado no existe');
+        error.status = 400;
+        throw error;
+      }
 
-    res.json(set);
+      const previousExerciseId = Number(set.exerciseId);
+      set.exerciseId = payload.exerciseId;
+      set.weightKg = payload.weightKg;
+      set.reps = payload.reps;
+      set.setOrder = payload.setOrder;
+      set.setType = payload.setType;
+      set.restSeconds = payload.restSeconds;
+      set.actualRestSeconds = payload.actualRestSeconds;
+      set.notes = payload.notes || null;
+      await set.save({ transaction });
+
+      await recalcUserPersonalRecords(req.userId, previousExerciseId, transaction);
+      if (Number(payload.exerciseId) !== Number(previousExerciseId)) {
+        await recalcUserPersonalRecords(req.userId, Number(payload.exerciseId), transaction);
+      }
+      await recalculateUserLeagueVolumesForDate(req.userId, session.sessionDate, transaction);
+      return set;
+    });
+
+    res.json(updatedSet);
   } catch (err) {
     next(err);
   }
@@ -133,26 +160,35 @@ async function updateSet(req, res, next) {
 
 async function deleteSet(req, res, next) {
   try {
-    const session = await WorkoutSession.findOne({
-      where: { id: req.params.id, userId: req.userId },
+    const deletedSetId = await sequelize.transaction(async (transaction) => {
+      const session = await WorkoutSession.findOne({
+        where: { id: req.params.id, userId: req.userId },
+        transaction,
+      });
+      if (!session) {
+        const error = new Error('Sesión no encontrada');
+        error.status = 404;
+        throw error;
+      }
+
+      const set = await WorkoutSet.findOne({
+        where: { id: req.params.setId, sessionId: session.id },
+        transaction,
+      });
+      if (!set) {
+        const error = new Error('Serie no encontrada');
+        error.status = 404;
+        throw error;
+      }
+
+      const exerciseId = Number(set.exerciseId);
+      await set.destroy({ transaction });
+      await recalcUserPersonalRecords(req.userId, exerciseId, transaction);
+      await recalculateUserLeagueVolumesForDate(req.userId, session.sessionDate, transaction);
+      return Number(req.params.setId);
     });
-    if (!session) {
-      return res.status(404).json({ error: true, message: 'Sesión no encontrada' });
-    }
 
-    const set = await WorkoutSet.findOne({
-      where: { id: req.params.setId, sessionId: session.id },
-    });
-    if (!set) {
-      return res.status(404).json({ error: true, message: 'Serie no encontrada' });
-    }
-
-    const exerciseId = Number(set.exerciseId);
-    await set.destroy();
-    await recalcUserPersonalRecords(req.userId, exerciseId);
-    await recalculateUserLeagueVolumesForDate(req.userId, session.sessionDate);
-
-    res.json({ deleted: true, setId: Number(req.params.setId) });
+    res.json({ deleted: true, setId: deletedSetId });
   } catch (err) {
     next(err);
   }

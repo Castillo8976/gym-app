@@ -1,4 +1,5 @@
 const { Exercise, StrengthStandard, PersonalRecord, UserRank, User, WorkoutSet, WorkoutSession } = require('../models');
+const { DEFAULT_STANDARDS, getDefaultStandards } = require('./strengthStandards');
 
 const RANK_ORDER = ['bronce', 'plata', 'oro', 'platino', 'diamante'];
 const MAX_REPS_FOR_1RM = 12;
@@ -9,36 +10,8 @@ function resolveHighestRank(ranks = []) {
   ), 'bronce');
 }
 
-const DEFAULT_STANDARDS = {
-  'press de banca': {
-    male: { bronce: 0.5, plata: 0.75, oro: 1, platino: 1.25, diamante: 1.5 },
-    female: { bronce: 0.3, plata: 0.45, oro: 0.6, platino: 0.75, diamante: 0.9 },
-  },
-  sentadilla: {
-    male: { bronce: 0.75, plata: 1, oro: 1.5, platino: 1.75, diamante: 2 },
-    female: { bronce: 0.5, plata: 0.7, oro: 1, platino: 1.25, diamante: 1.5 },
-  },
-  'peso muerto': {
-    male: { bronce: 1, plata: 1.25, oro: 1.75, platino: 2, diamante: 2.5 },
-    female: { bronce: 0.6, plata: 0.8, oro: 1.1, platino: 1.4, diamante: 1.75 },
-  },
-  'press militar': {
-    male: { bronce: 0.45, plata: 0.65, oro: 0.85, platino: 1.05, diamante: 1.2 },
-    female: { bronce: 0.25, plata: 0.4, oro: 0.55, platino: 0.7, diamante: 0.85 },
-  },
-  'curl con barra': {
-    male: { bronce: 0.35, plata: 0.55, oro: 0.75, platino: 0.9, diamante: 1.1 },
-    female: { bronce: 0.2, plata: 0.35, oro: 0.5, platino: 0.65, diamante: 0.8 },
-  },
-};
-
-function normalizeExerciseName(value) {
-  return String(value || '').trim().toLowerCase();
-}
-
 function getExerciseStandardThresholds(exerciseName, gender) {
-  const normalized = normalizeExerciseName(exerciseName);
-  const table = DEFAULT_STANDARDS[normalized];
+  const table = getDefaultStandards(exerciseName);
   if (!table) {
     const error = new Error(`No existen estándares de fuerza configurados para "${exerciseName}"`);
     error.status = 422;
@@ -73,6 +46,7 @@ function summarizeBestPRsFromSets(sets = []) {
 
   for (const set of sets) {
     if (!set || !set.exerciseId) continue;
+    if (String(set.setType ?? set.set_type ?? 'normal').toLowerCase() === 'warmup') continue;
 
     const weightKg = Number(set.weightKg ?? set.weight_kg ?? 0);
     const reps = Number(set.reps ?? 0);
@@ -219,11 +193,14 @@ async function actualizarRangoSiAplica(userId, exerciseId, transaction) {
  * Registra un nuevo set y, si supera el PR anterior, crea el PersonalRecord
  * y dispara el recálculo de rango.
  */
-async function registrarSetYActualizarPR(userId, exerciseId, pesoKg, reps, transaction) {
+async function registrarSetYActualizarPR(userId, exerciseId, pesoKg, reps, transaction, setType = 'normal') {
   if (!transaction) {
     const error = new Error('registrarSetYActualizarPR requiere una transacción activa');
     error.status = 500;
     throw error;
+  }
+  if (String(setType).toLowerCase() === 'warmup') {
+    return { estimated1rm: Number(estimar1RM(pesoKg, reps).toFixed(2)), esNuevoPR: false };
   }
   const nuevoEstimado = estimar1RM(pesoKg, reps);
 

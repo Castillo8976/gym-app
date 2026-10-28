@@ -1,5 +1,9 @@
 const { User, WorkoutSession, WorkoutSet, Exercise, UserRestPreference, ExercisePlateConfig } = require('../models');
 const { recalcularRangosUsuario } = require('../services/rankService');
+const {
+  validateRestPreferencesPayload,
+  validateUpdateMePayload,
+} = require('../validators/userValidation');
 
 const DEFAULT_REST_SECONDS = 90;
 const DEFAULT_WARMUP_REST_SECONDS = 60;
@@ -55,7 +59,8 @@ async function getMe(req, res, next) {
 
 async function updateMe(req, res, next) {
   try {
-    const { bodyweightKg, name } = req.body;
+    const payload = validateUpdateMePayload(req.body);
+    const { bodyweightKg, name } = payload;
     const user = await User.findByPk(req.userId);
     if (!user) return res.status(404).json({ error: true, message: 'Usuario no encontrado' });
 
@@ -125,7 +130,7 @@ async function getRestPreferences(req, res, next) {
 
 async function updateRestPreferences(req, res, next) {
   try {
-    const { defaultRestSeconds, defaultWarmupRestSeconds } = req.body || {};
+    const { defaultRestSeconds, defaultWarmupRestSeconds } = validateRestPreferencesPayload(req.body);
     const [preferences] = await UserRestPreference.findOrCreate({
       where: { userId: req.userId },
       defaults: {
