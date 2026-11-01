@@ -12,6 +12,12 @@ API REST en Node.js + Express + Sequelize (MySQL/MariaDB) para la app de entrena
 - Node.js LTS y npm.
 - MySQL o MariaDB local.
 
+Para levantar MariaDB y la API de forma reproducible desde la raíz del repositorio,
+usa `docker compose up --build`. El Compose crea la base, espera a que esté lista,
+aplica las migraciones, carga el catálogo y publica la API en
+`http://localhost:3000`. Define `JWT_SECRET` en un archivo `.env` de la raíz antes
+de ejecutarlo; nunca uses los valores de ejemplo en producción.
+
 ## Instalación
 
 Desde `backend/`:

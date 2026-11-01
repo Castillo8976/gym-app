@@ -1,0 +1,54 @@
+services:
+  db:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${DB_NAME:-gym_app}
+      MARIADB_USER: ${DB_USER:-gym}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-gym_dev_password}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_dev_password}
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - gym-db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 3000
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-gym_app}
+      DB_USER: ${DB_USER:-gym}
+      DB_PASSWORD: ${DB_PASSWORD:-gym_dev_password}
+      JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET in .env}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8081,http://127.0.0.1:8081}
+      LEAGUE_CREATOR_EMAILS: ${LEAGUE_CREATOR_EMAILS:-}
+      REFRESH_TOKEN_DAYS: ${REFRESH_TOKEN_DAYS:-30}
+      EMAIL_VERIFICATION_DAYS: ${EMAIL_VERIFICATION_DAYS:-1}
+      PASSWORD_RESET_HOURS: ${PASSWORD_RESET_HOURS:-1}
+      AUTH_EXPOSE_TOKENS: ${AUTH_EXPOSE_TOKENS:-false}
+    ports:
+      - "${API_PORT:-3000}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["sh", "-c", "npm run db:migrate && npm run seed && npm start"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/api/health', response => process.exit(response.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+volumes:
+  gym-db-data:

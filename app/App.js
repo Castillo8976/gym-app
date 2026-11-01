@@ -38,17 +38,17 @@ function deleteStoredToken() {
 }
 
 const COLORS = {
-  ink: '#24142F',
-  muted: '#6A5A7A',
-  paper: '#F7F3FF',
+  ink: '#FFFFFF',
+  muted: '#9A9CA8',
+  paper: '#0B0B10',
   white: '#FFFFFF',
-  line: '#E5D9F8',
-  purple: '#8B5CF6',
-  deepPurple: '#4C1D95',
-  violet: '#A78BFA',
-  palePurple: '#EFE9FF',
-  lavender: '#F3E8FF',
-  error: '#A13C7F',
+  line: 'rgba(255,255,255,0.10)',
+  purple: '#7C83F5',
+  deepPurple: '#AEB3FF',
+  violet: '#9EA4FF',
+  palePurple: 'rgba(255,255,255,0.08)',
+  lavender: '#262A55',
+  error: '#D49A6A',
 };
 
 function formatDate(value) {
@@ -124,7 +124,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
-  const [tab, setTab] = useState('train');
+  const [tab, setTab] = useState('home');
   const [authMode, setAuthMode] = useState('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -662,7 +662,7 @@ function App() {
     const registering = authMode === 'register';
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar style="dark" />
+        <StatusBar style="light" />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
           <ScrollView contentContainerStyle={styles.authContainer} keyboardShouldPersistTaps="handled">
             <View style={styles.brandLine}>
@@ -710,7 +710,7 @@ function App() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
       <View style={styles.topBar}>
         <View style={styles.brandLine}>
           <View style={styles.brandMark}><Text style={styles.brandMarkText}>G</Text></View>
@@ -722,19 +722,22 @@ function App() {
       </View>
 
       <View style={styles.tabBar}>
+        <Pressable onPress={() => setTab('home')} style={[styles.tab, tab === 'home' && styles.tabActive]}>
+          <Text style={[styles.tabText, tab === 'home' && styles.tabTextActive]}>Inicio</Text>
+        </Pressable>
         <Pressable onPress={() => setTab('train')} style={[styles.tab, tab === 'train' && styles.tabActive]}>
           <Text style={[styles.tabText, tab === 'train' && styles.tabTextActive]}>Entrenar</Text>
         </Pressable>
-        <Pressable onPress={() => { setTab('history'); setActiveSession(null); }} style={[styles.tab, tab === 'history' && styles.tabActive]}>
-          <Text style={[styles.tabText, tab === 'history' && styles.tabTextActive]}>Historial</Text>
+        <Pressable onPress={() => setTab('ranks')} style={[styles.tab, tab === 'ranks' && styles.tabActive]}>
+          <Text style={[styles.tabText, tab === 'ranks' && styles.tabTextActive]}>Rangos</Text>
         </Pressable>
-        <Pressable onPress={() => setTab('profile')} style={[styles.tab, tab === 'profile' && styles.tabActive]}>
-          <Text style={[styles.tabText, tab === 'profile' && styles.tabTextActive]}>Perfil</Text>
+        <Pressable onPress={() => setTab('league')} style={[styles.tab, tab === 'league' && styles.tabActive]}>
+          <Text style={[styles.tabText, tab === 'league' && styles.tabTextActive]}>Liga</Text>
         </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={styles.pageContent} keyboardShouldPersistTaps="handled">
-        {tab === 'train' ? (
+        {tab === 'home' || tab === 'train' ? (
           <>
             <View style={styles.pageHeading}>
               <Text style={styles.eyebrow}>{formatDate(new Date().toISOString().slice(0, 10)).toUpperCase()}</Text>
@@ -910,6 +913,43 @@ function App() {
                 <SessionRow session={sessions[0]} onPress={() => openSession(sessions[0])} />
               </View>
             )}
+          </>
+        ) : tab === 'ranks' ? (
+          <>
+            <View style={styles.pageHeading}>
+              <Text style={styles.eyebrow}>FUERZA RELATIVA</Text>
+              <Text style={styles.pageTitle}>Tus rangos</Text>
+              <Text style={styles.bodyCopy}>Tu progreso por grupo muscular, calculado a partir de tus mejores series.</Text>
+            </View>
+            {ranks.length === 0 ? (
+              <View style={styles.emptyState}><Text style={styles.emptyTitle}>Aún no hay rangos</Text><Text style={styles.bodyCopy}>Registra una serie de trabajo para calcular tu primer rango.</Text></View>
+            ) : ranks.map((rank) => (
+              <View key={rank.id} style={styles.routineCard}>
+                <View style={styles.sectionHeadingRow}>
+                  <Text style={styles.exerciseName}>{rank.MuscleGroup?.name || 'Grupo muscular'}</Text>
+                  <Text style={styles.rankBadge}>{rank.currentRank || rank.rankLevel || 'Sin nivel'}</Text>
+                </View>
+                <View style={styles.rankBar}><View style={[styles.rankBarFill, { width: `${Math.min(100, Math.max(0, Number(rank.progressPercent || rank.progress || 0)))}%` }]} /></View>
+                <Text style={styles.bodyCopy}>Ratio actual: {Number(rank.ratio || 0).toLocaleString('es', { maximumFractionDigits: 2 })}×</Text>
+              </View>
+            ))}
+          </>
+        ) : tab === 'league' ? (
+          <>
+            <View style={styles.pageHeading}>
+              <Text style={styles.eyebrow}>COMPETICIÓN</Text>
+              <Text style={styles.pageTitle}>Tu liga</Text>
+              <Text style={styles.bodyCopy}>Compite por volumen de trabajo y sube de división.</Text>
+            </View>
+            {leagues.length === 0 ? (
+              <View style={styles.emptyState}><Text style={styles.emptyTitle}>No estás en ninguna liga</Text><Text style={styles.bodyCopy}>Únete a una liga para ver tu posición y volumen.</Text><PrimaryButton label="Crear liga" onPress={() => setShowLeagueBuilder(true)} /></View>
+            ) : leagues.map((league) => (
+              <Pressable key={league.id} onPress={async () => { try { setLeagueDetail({ league, members: await api.getLeagueMembers(token, league.id) }); } catch (error) { setNotice(error.message); } }} style={styles.routineCard}>
+                <View style={styles.sectionHeadingRow}><Text style={styles.exerciseName}>{league.name}</Text><Text style={styles.rankBadge}>Ver ranking</Text></View>
+                <Text style={styles.bodyCopy}>{formatDate(league.startDate)} — {formatDate(league.endDate)}</Text>
+              </Pressable>
+            ))}
+            {!!leagueDetail && <View style={styles.workoutPanel}><Text style={styles.sectionTitle}>{leagueDetail.league.name}</Text><Text style={styles.bodyCopy}>Miembros: {(leagueDetail.members || []).length}</Text></View>}
           </>
         ) : tab === 'profile' ? (
           <>
@@ -1183,7 +1223,7 @@ const styles = StyleSheet.create({
   avatarText: { color: COLORS.deepPurple, fontWeight: '800', fontSize: 14 },
   tabBar: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, paddingHorizontal: 24, paddingBottom: 14, borderBottomWidth: 1, borderColor: COLORS.line },
   tab: { flex: 1, paddingVertical: 9, paddingHorizontal: 10, borderRadius: 20, alignItems: 'center' },
-  tabActive: { backgroundColor: COLORS.deepPurple },
+  tabActive: { backgroundColor: 'rgba(255,255,255,0.12)' },
   tabText: { color: COLORS.muted, fontSize: 13, fontWeight: '700' },
   tabTextActive: { color: COLORS.white },
   pageContent: { paddingHorizontal: 24, paddingTop: 25, paddingBottom: 36 },
@@ -1191,24 +1231,24 @@ const styles = StyleSheet.create({
   eyebrow: { color: COLORS.deepPurple, fontSize: 10, fontWeight: '800', marginBottom: 9 },
   pageTitle: { color: COLORS.ink, fontSize: 36, fontWeight: '800', marginBottom: 5 },
   bodyCopy: { color: COLORS.muted, fontSize: 14, lineHeight: 21 },
-  startPanel: { backgroundColor: COLORS.deepPurple, borderRadius: 8, padding: 20, gap: 22 },
+  startPanel: { backgroundColor: '#3B3F7A', borderRadius: 26, padding: 20, gap: 22 },
   startPanelText: { gap: 8 },
   panelKicker: { color: COLORS.violet, fontSize: 10, fontWeight: '800' },
   panelTitle: { color: COLORS.white, fontSize: 22, fontWeight: '800' },
   panelBody: { color: '#E5D6FF', fontSize: 13, lineHeight: 19 },
-  primaryButton: { minHeight: 50, paddingHorizontal: 18, backgroundColor: COLORS.purple, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  primaryButton: { minHeight: 50, paddingHorizontal: 18, backgroundColor: COLORS.white, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   primaryButtonSecondary: { minHeight: 44, paddingHorizontal: 18, backgroundColor: COLORS.palePurple, borderRadius: 6, alignItems: 'center', justifyContent: 'center', marginTop: 10, marginBottom: 8 },
   primaryButtonText: { color: COLORS.ink, fontSize: 14, fontWeight: '800' },
   disabledButton: { opacity: 0.48 },
   pressedButton: { opacity: 0.82 },
-  workoutPanel: { backgroundColor: COLORS.white, borderRadius: 8, padding: 18, gap: 14, borderWidth: 1, borderColor: COLORS.line },
+  workoutPanel: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 22, padding: 18, gap: 14, borderWidth: 1, borderColor: COLORS.line },
   sessionMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 5 },
   counterBadge: { width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.palePurple },
   counterNumber: { color: COLORS.deepPurple, fontSize: 18, fontWeight: '800' },
   counterCaption: { color: COLORS.deepPurple, fontSize: 8, fontWeight: '800' },
   fieldGroup: { gap: 7 },
   fieldLabel: { color: COLORS.ink, fontSize: 12, fontWeight: '700' },
-  input: { minHeight: 48, paddingHorizontal: 13, borderWidth: 1, borderColor: COLORS.line, borderRadius: 5, color: COLORS.ink, fontSize: 15, backgroundColor: COLORS.white },
+  input: { minHeight: 48, paddingHorizontal: 13, borderWidth: 1, borderColor: COLORS.line, borderRadius: 12, color: COLORS.ink, fontSize: 15, backgroundColor: 'rgba(255,255,255,0.06)' },
   selectorButton: { minHeight: 50, paddingHorizontal: 13, borderWidth: 1, borderColor: COLORS.line, borderRadius: 5, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   selectorText: { color: COLORS.ink, fontSize: 14, fontWeight: '600' },
   placeholder: { color: '#909991', fontWeight: '400' },
@@ -1231,7 +1271,10 @@ const styles = StyleSheet.create({
   sectionHeadingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   sectionTitle: { color: COLORS.ink, fontSize: 16, fontWeight: '800' },
   linkText: { color: COLORS.deepPurple, fontSize: 12, fontWeight: '800' },
-  routineCard: { backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.line, borderRadius: 8, padding: 14, gap: 10 },
+  routineCard: { backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: COLORS.line, borderRadius: 22, padding: 14, gap: 10 },
+  rankBadge: { color: COLORS.violet, fontSize: 12, fontWeight: '800' },
+  rankBar: { height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.10)', overflow: 'hidden' },
+  rankBarFill: { height: 8, borderRadius: 4, backgroundColor: COLORS.purple },
   routineList: { gap: 5 },
   routineItem: { color: COLORS.ink, fontSize: 12, lineHeight: 18 },
   routineEditorRow: { backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.line, borderRadius: 8, padding: 12, gap: 12, marginBottom: 12 },
