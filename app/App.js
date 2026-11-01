@@ -355,8 +355,9 @@ function App() {
         sessionDate: getLocalDate(),
       });
       setActiveSession(created);
+      setTab('train');
       setSetCount(0);
-      setType('normal');
+      setSetType('normal');
       setRestSeconds(String(restPreferences.defaultRestSeconds || 90));
       setActualRestSeconds('');
       setSetNotes('');
@@ -711,7 +712,7 @@ function App() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
-      <View style={styles.topBar}>
+      {tab !== 'home' && <View style={styles.topBar}>
         <View style={styles.brandLine}>
           <View style={styles.brandMark}><Text style={styles.brandMarkText}>G</Text></View>
           <Text style={styles.brandName}>FORMA</Text>
@@ -719,7 +720,7 @@ function App() {
         <Pressable accessibilityLabel="Cerrar sesión" onPress={handleLogout} style={styles.avatarButton}>
           <Text style={styles.avatarText}>{(user?.name || 'U').slice(0, 1).toUpperCase()}</Text>
         </Pressable>
-      </View>
+      </View>}
 
       <View style={styles.tabBar}>
         <Pressable onPress={() => setTab('home')} style={[styles.tab, tab === 'home' && styles.tabActive]}>
@@ -737,7 +738,59 @@ function App() {
       </View>
 
       <ScrollView contentContainerStyle={styles.pageContent} keyboardShouldPersistTaps="handled">
-        {tab === 'home' || tab === 'train' ? (
+        {tab === 'home' ? (
+          <>
+            <View style={styles.homeHeader}>
+              <View>
+                <Text style={styles.eyebrow}>{formatDate(new Date().toISOString().slice(0, 10))}</Text>
+                <Text style={styles.homeTitle}>Hola, {user?.name?.split(' ')[0] || 'Atleta'}</Text>
+              </View>
+              <View style={styles.streakChip}><Text style={styles.streakText}>5 semanas seguidas</Text></View>
+            </View>
+
+            <View style={[styles.card, styles.weekCard]}>
+              {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((day, index) => (
+                <View key={day} style={styles.weekDay}>
+                  <Text style={styles.mutedText}>{day}</Text>
+                  <View style={[styles.dayCircle, index < 3 && styles.dayDone, index === 3 && styles.dayToday]}>
+                    <Text style={styles.dayMark}>{index < 3 ? '✓' : index === 3 ? '•' : ''}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.heroCard}>
+              <Text style={styles.heroEyebrow}>HOY TE TOCA</Text>
+              <Text style={styles.heroTitle}>Empuje A</Text>
+              <Text style={styles.heroCopy}>5 ejercicios · 52 min · Press de banca 67,5 kg × 8 la última vez</Text>
+              <PrimaryButton label="Empezar entrenamiento" loading={busy} onPress={handleStartSession} />
+            </View>
+
+            <View style={[styles.card, styles.rangesCard]}>
+              <View style={styles.sectionHeadingRow}><Text style={styles.eyebrow}>TUS RANGOS</Text><Text style={styles.mutedText}>Toca uno</Text></View>
+              <View style={styles.rangeRow}>
+                {[
+                  ['Pecho', '#C28A5E'], ['Espalda', '#AEB6C4'], ['Piernas', '#D1B15C'],
+                  ['Hombros', '#7FB8B0'], ['Brazos', '#8DB5E0'],
+                ].map(([label, color], index) => {
+                  const rank = ranks.find((entry) => (entry.MuscleGroup?.name || '').toLowerCase() === label.toLowerCase());
+                  return (
+                    <Pressable key={label} onPress={() => setTab('ranks')} style={styles.rangeItem}>
+                      <View style={[styles.rankHex, { borderColor: color, backgroundColor: `${color}26` }]}><Text style={[styles.rankNumber, { color }]}>{rank?.level || rank?.rankLevel || index + 1}</Text></View>
+                      <Text style={styles.rangeName}>{label}</Text>
+                      <Text style={[styles.rangeRank, { color }]}>{rank?.currentRank || 'Bronce'}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={[styles.card, styles.leagueCard]}>
+              <View><Text style={styles.leagueTitle}>{leagues[0]?.name || 'Liga Plata'} · puesto {leagues[0]?.position || '—'}</Text><Text style={styles.mutedText}>Termina en 4 días · zona de ascenso</Text></View>
+              <Text style={styles.leagueVolume}>48.250 kg</Text>
+            </View>
+          </>
+        ) : tab === 'train' ? (
           <>
             <View style={styles.pageHeading}>
               <Text style={styles.eyebrow}>{formatDate(new Date().toISOString().slice(0, 10)).toUpperCase()}</Text>
@@ -1212,21 +1265,47 @@ function SessionRow({ session, onPress }) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  safeArea: { flex: 1, backgroundColor: COLORS.paper, paddingTop: Platform.OS === 'android' ? NativeStatusBar.currentHeight : 0 },
+  safeArea: { flex: 1, width: '100%', maxWidth: 390, alignSelf: 'center', backgroundColor: COLORS.paper, paddingTop: Platform.OS === 'android' ? NativeStatusBar.currentHeight : 0 },
   loadingScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.paper },
-  topBar: { height: 64, paddingHorizontal: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  topBar: { height: 58, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   brandLine: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   brandMark: { width: 28, height: 28, borderRadius: 8, backgroundColor: COLORS.purple, alignItems: 'center', justifyContent: 'center' },
   brandMarkText: { color: COLORS.white, fontWeight: '900', fontSize: 16 },
   brandName: { color: COLORS.ink, fontSize: 12, fontWeight: '800' },
   avatarButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.palePurple, alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: COLORS.deepPurple, fontWeight: '800', fontSize: 14 },
-  tabBar: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, paddingHorizontal: 24, paddingBottom: 14, borderBottomWidth: 1, borderColor: COLORS.line },
-  tab: { flex: 1, paddingVertical: 9, paddingHorizontal: 10, borderRadius: 20, alignItems: 'center' },
-  tabActive: { backgroundColor: 'rgba(255,255,255,0.12)' },
+  tabBar: { position: 'absolute', zIndex: 5, bottom: 0, left: 0, right: 0, height: 78, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 8, paddingBottom: 8, backgroundColor: 'rgba(11,11,16,0.94)', borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  tab: { flex: 1, minHeight: 44, paddingVertical: 9, paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center' },
+  tabActive: { backgroundColor: 'transparent' },
   tabText: { color: COLORS.muted, fontSize: 13, fontWeight: '700' },
   tabTextActive: { color: COLORS.white },
-  pageContent: { paddingHorizontal: 24, paddingTop: 25, paddingBottom: 36 },
+  pageContent: { paddingHorizontal: 18, paddingTop: 22, paddingBottom: 96, gap: 14 },
+  homeHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  homeTitle: { color: COLORS.white, fontSize: 28, fontWeight: '700', letterSpacing: -0.56 },
+  streakChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 99, backgroundColor: 'rgba(255,255,255,0.08)' },
+  streakText: { color: COLORS.white, fontSize: 13, fontWeight: '700' },
+  card: { backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: COLORS.line, borderRadius: 22, padding: 16 },
+  weekCard: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12 },
+  weekDay: { alignItems: 'center', gap: 6 },
+  mutedText: { color: COLORS.muted, fontSize: 12 },
+  dayCircle: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)' },
+  dayDone: { backgroundColor: COLORS.purple, borderColor: COLORS.purple },
+  dayToday: { borderWidth: 2, borderColor: COLORS.purple },
+  dayMark: { color: COLORS.white, fontSize: 13, fontWeight: '700' },
+  heroCard: { borderRadius: 26, padding: 20, gap: 10, backgroundColor: '#3B3F7A' },
+  heroEyebrow: { color: COLORS.white, opacity: 0.85, fontSize: 11, fontWeight: '600', letterSpacing: 1.32 },
+  heroTitle: { color: COLORS.white, fontSize: 38, fontWeight: '700', letterSpacing: -0.76 },
+  heroCopy: { color: COLORS.white, opacity: 0.9, fontSize: 13, lineHeight: 19 },
+  rangesCard: { gap: 12 },
+  rangeRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 4 },
+  rangeItem: { flex: 1, alignItems: 'center', gap: 4, minHeight: 44 },
+  rankHex: { width: 46, height: 46, borderWidth: 2, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  rankNumber: { fontSize: 26, fontWeight: '700' },
+  rangeName: { color: COLORS.white, fontSize: 11 },
+  rangeRank: { fontSize: 11 },
+  leagueCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(255,255,255,0.05)' },
+  leagueTitle: { color: COLORS.white, fontSize: 14, fontWeight: '700', marginBottom: 4 },
+  leagueVolume: { color: COLORS.white, fontSize: 18, fontWeight: '700' },
   pageHeading: { marginBottom: 23 },
   eyebrow: { color: COLORS.deepPurple, fontSize: 10, fontWeight: '800', marginBottom: 9 },
   pageTitle: { color: COLORS.ink, fontSize: 36, fontWeight: '800', marginBottom: 5 },
@@ -1238,7 +1317,7 @@ const styles = StyleSheet.create({
   panelBody: { color: '#E5D6FF', fontSize: 13, lineHeight: 19 },
   primaryButton: { minHeight: 50, paddingHorizontal: 18, backgroundColor: COLORS.white, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   primaryButtonSecondary: { minHeight: 44, paddingHorizontal: 18, backgroundColor: COLORS.palePurple, borderRadius: 6, alignItems: 'center', justifyContent: 'center', marginTop: 10, marginBottom: 8 },
-  primaryButtonText: { color: COLORS.ink, fontSize: 14, fontWeight: '800' },
+  primaryButtonText: { color: '#0B0B10', fontSize: 14, fontWeight: '800' },
   disabledButton: { opacity: 0.48 },
   pressedButton: { opacity: 0.82 },
   workoutPanel: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 22, padding: 18, gap: 14, borderWidth: 1, borderColor: COLORS.line },
