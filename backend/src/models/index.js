@@ -13,6 +13,8 @@ const WorkoutTemplate = require('./WorkoutTemplate');
 const WorkoutTemplateExercise = require('./WorkoutTemplateExercise');
 const League = require('./League');
 const LeagueMember = require('./LeagueMember');
+const RefreshToken = require('./RefreshToken');
+const AuthToken = require('./AuthToken');
 
 // Relaciones — reflejan las FOREIGN KEY del esquema en 03-modelo-de-datos.md
 
@@ -63,6 +65,10 @@ LeagueMember.belongsTo(League, { foreignKey: 'leagueId' });
 
 User.hasMany(LeagueMember, { foreignKey: 'userId' });
 LeagueMember.belongsTo(User, { foreignKey: 'userId' });
+User.hasMany(RefreshToken, { foreignKey: 'userId' });
+RefreshToken.belongsTo(User, { foreignKey: 'userId' });
+User.hasMany(AuthToken, { foreignKey: 'userId' });
+AuthToken.belongsTo(User, { foreignKey: 'userId' });
 
 module.exports = {
   sequelize,
@@ -80,4 +86,6 @@ module.exports = {
   WorkoutTemplateExercise,
   League,
   LeagueMember,
+  RefreshToken,
+  AuthToken,
 };

@@ -49,7 +49,7 @@ Referencia de la API tal como está implementada en el commit `fc370d5`.
 | POST | `/leagues/:id/join` | 🔒 | Unirse a una liga |
 | GET | `/leagues/:id/members` | 🔒 | Clasificación de la liga |
 
-> ⚠️ **Rutinas:** los cuatro endpoints `/routines` fallan hoy con 500 por un bug conocido (`req.user` no existe). Ver [`06`](./06-estado-y-limitaciones.md#bugs-conocidos).
+> Las rutas de rutinas requieren autenticación y limitan todas las operaciones al usuario de `req.userId`.
 
 ---
 
@@ -147,7 +147,7 @@ El seeder carga solo los 5 ejercicios ancla.
 ## Sesiones de entrenamiento 🔒
 
 ### `POST /workout-sessions`
-Cuerpo opcional `{ "sessionDate"?: "YYYY-MM-DD", "notes"?: string }`. Si falta la fecha, usa la fecha **UTC** de hoy. → `201` sesión `{ id, userId, sessionDate, notes }`.
+Cuerpo opcional `{ "sessionDate"?: "YYYY-MM-DD", "notes"?: string }`. Si falta la fecha, usa la fecha del calendario local del servidor. → `201` sesión `{ id, userId, sessionDate, notes }`.
 
 ### `GET /workout-sessions`
 Sesiones del usuario, más recientes primero.

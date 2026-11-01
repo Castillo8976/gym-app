@@ -110,7 +110,9 @@ async function calcularRangoPorRatio(exerciseId, gender, ratio, transaction) {
   });
 
   if (!estandares.length) {
-    return resolveRankForRatio(ratio, gender, exercise.name);
+    const error = new Error(`No existen estándares de fuerza configurados para "${exercise.name}"`);
+    error.status = 422;
+    throw error;
   }
 
   let rango = 'bronce';

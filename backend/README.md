@@ -51,6 +51,10 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 | `CORS_ALLOWED_ORIGINS` | Sí (recomendado) | Lista separada por comas de orígenes permitidos para CORS (si está vacía, solo peticiones sin header `Origin`) |
 | `LEAGUE_CREATOR_EMAILS` | Sí (recomendado) | Lista separada por comas de emails autorizados para crear ligas |
 | `RUN_DB_INTEGRATION` | No | `1` activa la prueba de integración con base de datos (solo para tests) |
+| `REFRESH_TOKEN_DAYS` | No | Duración de refresh tokens (por defecto 30 días) |
+| `EMAIL_VERIFICATION_DAYS` | No | Duración de tokens de verificación |
+| `PASSWORD_RESET_HOURS` | No | Duración de tokens de recuperación |
+| `AUTH_EXPOSE_TOKENS` | No | Solo desarrollo: devuelve tokens para integrar correo; debe ser `false` en producción |
 
 ## Base de datos y migraciones
 
@@ -80,6 +84,14 @@ npm run seed         # grupos musculares, ejercicios ancla y estándares de fuer
 | `npm run db:migrate` | Aplica migraciones pendientes |
 | `npm run seed` | Carga el catálogo inicial |
 | `npm test` | Ejecuta las pruebas con el runner nativo de Node (`node --test`) |
+
+La autenticación incluye refresh tokens rotatorios (`/api/auth/refresh`, `/api/auth/logout`),
+recuperación de contraseña y verificación de email. Los tokens se almacenan únicamente
+como hashes. En producción hay que conectar un proveedor de correo y mantener
+`AUTH_EXPOSE_TOKENS=false`.
+
+La cuenta se puede eliminar con `DELETE /api/users/me`; la operación borra los datos
+asociados dentro de una transacción.
 
 ## Comprobar que funciona
 
@@ -161,7 +173,7 @@ tests/
 - Sesiones y series con recálculo de PR y rangos; edición y borrado con recálculo.
 - Perfil editable con recálculo de rangos al cambiar el peso.
 - Ligas por temporada con volumen automático y clasificación estable.
-- Rutinas implementadas, **con un bug conocido que las rompe**.
+- Rutinas implementadas y cubiertas por pruebas de alcance de usuario.
 
 ## Siguiente refinamiento
 

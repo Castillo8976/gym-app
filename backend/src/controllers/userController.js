@@ -1,4 +1,17 @@
-const { User, WorkoutSession, WorkoutSet, Exercise, UserRestPreference, ExercisePlateConfig } = require('../models');
+const {
+  sequelize,
+  User,
+  WorkoutSession,
+  WorkoutSet,
+  Exercise,
+  UserRestPreference,
+  ExercisePlateConfig,
+  PersonalRecord,
+  UserRank,
+  WorkoutTemplate,
+  WorkoutTemplateExercise,
+  LeagueMember,
+} = require('../models');
 const { recalcularRangosUsuario } = require('../services/rankService');
 const {
   validateRestPreferencesPayload,
@@ -72,6 +85,51 @@ async function updateMe(req, res, next) {
     if (bodyweightChanged) await recalcularRangosUsuario(req.userId);
 
     res.json({ id: user.id, name: user.name, bodyweightKg: user.bodyweightKg });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function deleteMe(req, res, next) {
+  try {
+    await sequelize.transaction(async (transaction) => {
+        const sessions = await WorkoutSession.findAll({
+          where: { userId: req.userId },
+          attributes: ['id'],
+          transaction,
+        });
+        const sessionIds = sessions.map((session) => session.id);
+
+        if (sessionIds.length > 0) {
+          await WorkoutSet.destroy({ where: { sessionId: sessionIds }, transaction });
+        }
+        await WorkoutSession.destroy({ where: { userId: req.userId }, transaction });
+        await PersonalRecord.destroy({ where: { userId: req.userId }, transaction });
+        await UserRank.destroy({ where: { userId: req.userId }, transaction });
+        await UserRestPreference.destroy({ where: { userId: req.userId }, transaction });
+        await ExercisePlateConfig.destroy({ where: { userId: req.userId }, transaction });
+
+        const templates = await WorkoutTemplate.findAll({
+          where: { userId: req.userId },
+          attributes: ['id'],
+          transaction,
+        });
+        const templateIds = templates.map((template) => template.id);
+        if (templateIds.length > 0) {
+          await WorkoutTemplateExercise.destroy({ where: { templateId: templateIds }, transaction });
+        }
+        await WorkoutTemplate.destroy({ where: { userId: req.userId }, transaction });
+        await LeagueMember.destroy({ where: { userId: req.userId }, transaction });
+
+        const deleted = await User.destroy({ where: { id: req.userId }, transaction });
+        if (deleted === 0) {
+          const error = new Error('Usuario no encontrado');
+          error.status = 404;
+          throw error;
+        }
+    });
+
+    res.status(204).send();
   } catch (err) {
     next(err);
   }
@@ -205,6 +263,7 @@ async function suggestPlateStack(req, res, next) {
 module.exports = {
   getMe,
   updateMe,
+  deleteMe,
   getLastSets,
   getRestPreferences,
   updateRestPreferences,

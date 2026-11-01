@@ -8,6 +8,7 @@ const User = sequelize.define('User', {
   gender: { type: DataTypes.ENUM('male', 'female'), allowNull: false },
   birthDate: { type: DataTypes.DATEONLY, field: 'birth_date' },
   bodyweightKg: { type: DataTypes.DECIMAL(5, 2), allowNull: false, field: 'bodyweight_kg' },
+  emailVerifiedAt: { type: DataTypes.DATE, field: 'email_verified_at' },
 }, {
   tableName: 'users',
   timestamps: true,

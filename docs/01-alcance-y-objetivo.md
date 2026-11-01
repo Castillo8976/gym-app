@@ -29,7 +29,7 @@ Las apps de tracking de gym existentes (Strong, Hevy, JEFIT, Fitbod, StrongLifts
 - Cálculo automático de 1RM estimado y ratio de fuerza
 - Sistema de rangos por grupo muscular (5 grupos, 5 rangos cada uno)
 - Historial de progreso y PRs
-- Plantillas de entrenamiento / rutinas reutilizables (código presente; ver bug conocido en [`06`](./06-estado-y-limitaciones.md#bugs-conocidos))
+- Plantillas de entrenamiento / rutinas reutilizables
 - Ligas de temporada y ranking por volumen acumulado
 
 **Queda fuera del MVP actual y del alcance de fase 2 del proyecto:**

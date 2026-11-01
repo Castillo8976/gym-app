@@ -6,6 +6,7 @@ const rankController = require('../controllers/rankController');
 
 router.get('/me', requireAuth, userController.getMe);
 router.patch('/me', requireAuth, userController.updateMe);
+router.delete('/me', requireAuth, userController.deleteMe);
 router.get('/me/last-sets', requireAuth, userController.getLastSets);
 router.get('/me/rest-preferences', requireAuth, userController.getRestPreferences);
 router.patch('/me/rest-preferences', requireAuth, userController.updateRestPreferences);

@@ -74,4 +74,24 @@ function validateLoginPayload(payload) {
   };
 }
 
-module.exports = { validateLoginPayload, validateRegistrationPayload };
+function validateTokenPayload(payload) {
+  if (!isObject(payload) || typeof payload.token !== 'string' || payload.token.length < 20) {
+    throw badRequest('token no es válido');
+  }
+  return { token: payload.token };
+}
+
+function validatePasswordResetPayload(payload) {
+  if (!isObject(payload)) throw badRequest('El cuerpo de la solicitud debe ser un objeto');
+  return { email: normalizeEmail(payload.email) };
+}
+
+function validateNewPasswordPayload(payload) {
+  if (!isObject(payload)) throw badRequest('El cuerpo de la solicitud debe ser un objeto');
+  return { token: validateTokenPayload(payload).token, password: validatePassword(payload.password, true) };
+}
+
+module.exports = {
+  validateLoginPayload, validateRegistrationPayload, validateTokenPayload,
+  validatePasswordResetPayload, validateNewPasswordPayload,
+};

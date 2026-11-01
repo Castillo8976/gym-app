@@ -54,6 +54,7 @@ Si algo falla, revisa la sección de problemas frecuentes de [`backend/README.md
 | [`04-api-endpoints.md`](./04-api-endpoints.md) | Referencia de la API REST con ejemplos, validaciones y errores |
 | [`05-pantallas-y-flujo.md`](./05-pantallas-y-flujo.md) | Pantallas reales de la app y flujo de usuario |
 | [`06-estado-y-limitaciones.md`](./06-estado-y-limitaciones.md) | Estado real, bugs conocidos, limitaciones y camino a producción |
+| [`07-produccion-y-tiendas.md`](./07-produccion-y-tiendas.md) | Checklist operativo, privacidad y publicación |
 | [`DECISIONES.md`](./DECISIONES.md) | Decisiones técnicas y su justificación |
 
 Documentación por paquete: [`backend/README.md`](../backend/README.md) y [`app/README.md`](../app/README.md).
@@ -67,7 +68,7 @@ Documentación por paquete: [`backend/README.md`](../backend/README.md) y [`app/
 | Rangos por grupo muscular (5 grupos × 5 rangos) | Implementado |
 | Ligas por temporada con volumen automático | Implementado |
 | Perfil editable con recálculo de rangos al cambiar el peso | Implementado |
-| Rutinas (plantillas) | Implementado en código, **con un bug conocido que las rompe** (ver [`06`](./06-estado-y-limitaciones.md#bugs-conocidos)) |
+| Rutinas (plantillas) | Implementado y cubierto por pruebas |
 | Pruebas de integración contra base de datos | Una prueba, opt-in |
 | Despliegue, CI/CD, monitoreo | No definido todavía |
 | Publicación en tiendas | No iniciada |
