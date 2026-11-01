@@ -3,6 +3,29 @@
 **Proyecto:** App de Gym con Sistema de Rangos
 **Autor:** Juan David Castillo Mena (Silver)
 
+## Índice
+
+| # | Decisión | Se aplica en |
+|---|---|---|
+| 01 | Rango por ratio de fuerza relativa (1RM / peso corporal) | `rankService.js` |
+| 02 | Rangos por grupo muscular | `rankService.js`, tabla `user_ranks` |
+| 03 | Cuándo se recalcula el rango | `rankService.js`, controladores de series y perfil |
+| 04 | Fórmula de Epley para el 1RM | `estimar1RM` |
+| 05 | React Native con Expo | `app/` |
+| 06 | Volumen de liga | `leagueService.js`, `leagueVolumeService.js` |
+
+## Cómo añadir una decisión
+
+Usa siempre la misma plantilla y numera de forma consecutiva:
+
+```
+## Decisión #NN
+**¿Qué decidí?**
+**¿Por qué?**
+**Alternativa descartada:**
+**Dónde se aplica:** (opcional) archivos o módulos afectados
+```
+
 ---
 
 ## Decisión #01

@@ -1,231 +1,181 @@
-# Modelo de Datos y Sistema de Rangos
+# Modelo de datos y sistema de rangos
 
-## 1. Fórmula del sistema de rangos
+> **Fuente de verdad del esquema:** los archivos de `backend/src/migrations/`. Este documento los resume; si hay diferencias, mandan las migraciones.
 
-### Paso 1: Estimar el 1RM (una repetición máxima)
-No siempre el usuario levanta a 1 repetición, así que estimamos con la fórmula de Epley:
+## 1. Cómo se calcula un rango
+
+### Paso 1 — Estimar el 1RM (fórmula de Epley, [Decisión #04](./DECISIONES.md))
 
 ```
-1RM_estimado = peso_levantado * (1 + reps / 30)
+1RM_estimado = peso_kg × (1 + reps / 30)
 ```
 
-Ejemplo: 80kg x 8 reps → 80 * (1 + 8/30) = 101.3 kg estimados a 1RM.
+Ejemplo: 80 kg × 8 reps → 80 × (1 + 8/30) = **101,33 kg**. Se guarda con 2 decimales.
+Epley sobreestima cuando las repeticiones son muchas; la API conserva las repeticiones registradas para volumen, pero limita a 12 las usadas en la estimación de 1RM (ver [`06`](./06-estado-y-limitaciones.md#limitaciones-de-diseño)).
 
-### Paso 2: Calcular el ratio de fuerza relativa
+### Paso 2 — Ratio de fuerza relativa ([Decisión #01](./DECISIONES.md))
+
 ```
-ratio = 1RM_estimado / peso_corporal_usuario
+ratio = mejor_1RM_estimado_del_ejercicio / peso_corporal_actual_del_usuario
 ```
 
-Este ratio es lo que se compara contra tablas de estándares, NO el peso absoluto — así alguien de 60kg y alguien de 100kg compiten de forma justa.
+Se compara el ratio, no el peso absoluto. **Se usa el peso corporal actual del perfil**, no el de cuando se hizo la serie (el esquema no guarda peso histórico).
 
-### Paso 3: Comparar contra los umbrales de rango
-Cada ejercicio principal tiene su propia tabla de ratios por rango, separada por género (los estándares de fuerza relativa difieren biológicamente entre hombres y mujeres — esto no es opinable, está bien documentado en tablas de fuerza como ExRx/Strength Level).
+### Paso 3 — Comparar contra los estándares
 
-**Ejemplo — Press de banca (ratio 1RM / peso corporal):**
+Cada ejercicio ancla tiene cinco umbrales por género (tabla `strength_standards`). El rango es el más alto cuyo umbral es **menor o igual** al ratio. **Bronce es el piso**: un ratio por debajo del umbral de Bronce sigue dando Bronce; no existe "sin rango".
 
-| Rango     | Hombres | Mujeres |
-|-----------|---------|---------|
-| Bronce    | 0.50    | 0.30    |
-| Plata     | 0.75    | 0.45    |
-| Oro       | 1.00    | 0.60    |
-| Platino   | 1.25    | 0.75    |
-| Diamante  | 1.50    | 0.90    |
+Umbrales cargados por el seeder (ratio 1RM / peso corporal):
 
-**Ejemplo — Sentadilla:**
+| Ejercicio | Género | Bronce | Plata | Oro | Platino | Diamante |
+|---|---|---|---|---|---|---|
+| Press de banca | Hombres | 0,50 | 0,75 | 1,00 | 1,25 | 1,50 |
+| | Mujeres | 0,30 | 0,45 | 0,60 | 0,75 | 0,90 |
+| Sentadilla | Hombres | 0,75 | 1,00 | 1,50 | 1,75 | 2,00 |
+| | Mujeres | 0,50 | 0,70 | 1,00 | 1,25 | 1,50 |
+| Peso muerto | Hombres | 1,00 | 1,25 | 1,75 | 2,00 | 2,50 |
+| | Mujeres | 0,60 | 0,80 | 1,10 | 1,40 | 1,75 |
+| Press militar | Hombres | 0,45 | 0,65 | 0,85 | 1,05 | 1,20 |
+| | Mujeres | 0,25 | 0,40 | 0,55 | 0,70 | 0,85 |
+| Curl con barra | Hombres | 0,35 | 0,55 | 0,75 | 0,90 | 1,10 |
+| | Mujeres | 0,20 | 0,35 | 0,50 | 0,65 | 0,80 |
 
-| Rango     | Hombres | Mujeres |
-|-----------|---------|---------|
-| Bronce    | 0.75    | 0.50    |
-| Plata     | 1.00    | 0.70    |
-| Oro       | 1.50    | 1.00    |
-| Platino   | 1.75    | 1.25    |
-| Diamante  | 2.00    | 1.50    |
+Son un punto de partida razonable, no una referencia estadística; deben validarse con usuarios reales.
 
-**Ejemplo — Peso muerto:**
+### Paso 4 — Rango por grupo muscular ([Decisión #02](./DECISIONES.md))
 
-| Rango     | Hombres | Mujeres |
-|-----------|---------|---------|
-| Bronce    | 1.00    | 0.60    |
-| Plata     | 1.25    | 0.80    |
-| Oro       | 1.75    | 1.10    |
-| Platino   | 2.00    | 1.40    |
-| Diamante  | 2.50    | 1.75    |
+El rango de un grupo es **el mayor rango entre sus ejercicios ancla**. Hoy el catálogo tiene un ancla por grupo:
 
-Estos números son un punto de partida razonable (basados en estándares de fuerza conocidos), pero conviene ajustarlos con feedback real de usuarios una vez tengas datos.
+| Grupo | Ejercicio ancla |
+|---|---|
+| Pecho | Press de banca |
+| Espalda | Peso muerto |
+| Piernas | Sentadilla |
+| Hombros | Press militar |
+| Brazos | Curl con barra |
 
-### Paso 4: Rango por grupo muscular (no solo por ejercicio)
-Cada grupo muscular (pecho, espalda, piernas, hombros, brazos) toma el rango de su "ejercicio ancla":
-- Pecho → Press de banca
-- Piernas → Sentadilla
-- Espalda/Posterior → Peso muerto
-- Hombros → Press militar
-- Brazos → Curl con barra
+Consecuencias del diseño actual:
+- Un usuario solo tiene fila en `user_ranks` para los grupos donde ya registró un PR de su ancla. `GET /api/users/me/ranks` devuelve únicamente esos grupos.
+- Entrenar otros ejercicios (aunque sean del mismo grupo) no cambia el rango.
+- **No existe un "rango general"** de la app. La idea de usar el mínimo de los cinco grupos sigue como propuesta, no implementada.
 
-Así el usuario ve 5 barras de progreso, una por grupo muscular, y un rango "general" que puede ser el promedio o el mínimo de los 5 (recomiendo el mínimo — motiva a entrenar lo que se descuida).
+### Cuándo se recalcula ([Decisión #03](./DECISIONES.md))
+
+| Evento | Qué se recalcula |
+|---|---|
+| Registrar una serie | Solo si supera el mejor 1RM estimado del ejercicio (nuevo PR) y el ejercicio es ancla |
+| Editar o borrar una serie | PR del ejercicio desde las series persistidas, y rango del grupo |
+| Cambiar el peso corporal del perfil | Rangos de todos los grupos con fila de rango o con PR ancla |
+
+Si un ejercicio no tiene estándares en la base, el backend usa una tabla de respaldo en código (`DEFAULT_STANDARDS` en `rankService.js`); para un ejercicio desconocido, ese respaldo usa los umbrales de **Press de banca**.
+
+### Volumen de liga ([Decisión #06](./DECISIONES.md))
+
+- Por serie: `weightKg × reps`; se suman y se redondean a 2 decimales.
+- Cuentan `normal`, `failure` y `drop_set`; **`warmup` se excluye**.
+- Cuentan sesiones con `sessionDate` entre `seasonStart` y `seasonEnd`, ambos inclusive.
+- Al unirse se calcula desde el inicio de la temporada (incluye sesiones anteriores al ingreso).
+- Se actualiza al unirse y al crear, editar o borrar series (no hay job ni trigger).
+- Empates: orden estable por `userId` ascendente.
 
 ---
 
-## 2. Esquema de base de datos (MySQL / MariaDB)
+## 2. Diagrama entidad-relación
 
-```sql
-CREATE TABLE users (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(100) NOT NULL,
-  email VARCHAR(150) UNIQUE NOT NULL,
-  password_hash VARCHAR(255) NOT NULL,
-  gender ENUM('male', 'female') NOT NULL,
-  birth_date DATE,
-  bodyweight_kg DECIMAL(5,2) NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE muscle_groups (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(50) NOT NULL -- Pecho, Espalda, Piernas, Hombros, Brazos
-);
-
-CREATE TABLE exercises (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(100) NOT NULL,
-  muscle_group_id INT NOT NULL,
-  is_anchor BOOLEAN DEFAULT FALSE, -- true si es el ejercicio que define el rango del grupo
-  FOREIGN KEY (muscle_group_id) REFERENCES muscle_groups(id)
-);
-
-CREATE TABLE strength_standards (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  exercise_id INT NOT NULL,
-  gender ENUM('male', 'female') NOT NULL,
-  rank_level ENUM('bronce','plata','oro','platino','diamante') NOT NULL,
-  bodyweight_ratio DECIMAL(4,2) NOT NULL,
-  FOREIGN KEY (exercise_id) REFERENCES exercises(id)
-);
-
-CREATE TABLE workout_sessions (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  user_id INT NOT NULL,
-  session_date DATE NOT NULL,
-  notes TEXT,
-  FOREIGN KEY (user_id) REFERENCES users(id)
-);
-
-CREATE TABLE workout_sets (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  session_id INT NOT NULL,
-  exercise_id INT NOT NULL,
-  weight_kg DECIMAL(6,2) NOT NULL,
-  reps INT NOT NULL,
-  set_order INT NOT NULL,
-  FOREIGN KEY (session_id) REFERENCES workout_sessions(id),
-  FOREIGN KEY (exercise_id) REFERENCES exercises(id)
-);
-
-CREATE TABLE personal_records (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  user_id INT NOT NULL,
-  exercise_id INT NOT NULL,
-  estimated_1rm DECIMAL(6,2) NOT NULL,
-  achieved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id),
-  FOREIGN KEY (exercise_id) REFERENCES exercises(id)
-);
-
-CREATE TABLE user_ranks (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  user_id INT NOT NULL,
-  muscle_group_id INT NOT NULL,
-  current_rank ENUM('bronce','plata','oro','platino','diamante') NOT NULL DEFAULT 'bronce',
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id),
-  FOREIGN KEY (muscle_group_id) REFERENCES muscle_groups(id)
-);
-
-CREATE TABLE leagues (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(100) NOT NULL,
-  season_start DATE NOT NULL,
-  season_end DATE NOT NULL
-);
-
-CREATE TABLE league_members (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  league_id INT NOT NULL,
-  user_id INT NOT NULL,
-  total_volume_kg DECIMAL(10,2) DEFAULT 0,
-  FOREIGN KEY (league_id) REFERENCES leagues(id),
-  FOREIGN KEY (user_id) REFERENCES users(id)
-);
+```mermaid
+erDiagram
+    users ||--o{ workout_sessions : registra
+    users ||--o{ personal_records : tiene
+    users ||--o{ user_ranks : tiene
+    users ||--o{ league_members : participa
+    users ||--o{ workout_templates : crea
+    users ||--o| user_rest_preferences : configura
+    users ||--o{ exercise_plate_config : configura
+    muscle_groups ||--o{ exercises : agrupa
+    muscle_groups ||--o{ user_ranks : "rango de"
+    exercises ||--o{ strength_standards : define
+    exercises ||--o{ workout_sets : "se entrena en"
+    exercises ||--o{ personal_records : "PR de"
+    exercises ||--o{ workout_template_exercises : incluye
+    workout_sessions ||--o{ workout_sets : contiene
+    workout_templates ||--o{ workout_template_exercises : contiene
+    leagues ||--o{ league_members : tiene
 ```
 
-**Notas de diseño:**
-- `is_anchor` en `exercises` marca los ejercicios que participan en el rango de su grupo muscular.
-- `user_ranks` refleja el mayor rango actual entre los PRs de los ejercicios ancla del grupo. Se recalcula al conseguir un PR, editar o borrar una serie, y cambiar el peso corporal del perfil; no se recalcula en cada serie sin PR.
-- `league_members.total_volume_kg` almacena la suma de carga por repeticiones de las series elegibles dentro de la temporada. La actualización al unirse y al crear, editar o borrar series está implementada según [Decisión #06](./DECISIONES.md#decisión-06).
+## 3. Diccionario de datos
 
-### Volumen de liga
+### Núcleo (migración `20261004000000-initial-schema`)
 
-- Fórmula por serie: `weightKg * reps`; se suman los resultados y se redondean a dos decimales.
-- Series incluidas: `normal`, `failure` y `drop_set`. `warmup` queda excluida.
-- Período: `sessionDate >= seasonStart` y `sessionDate <= seasonEnd`.
-- Al crear una membresía, calcular desde el inicio de la temporada e incluir las sesiones elegibles anteriores al ingreso.
-- Crear, editar o borrar una serie actualiza el total de las membresías afectadas. El cálculo se hace desde las series persistidas, no mediante un trigger ni un job diario.
-- En caso de empate, ordenar por `userId` ascendente como segundo criterio.
+| Tabla | Columnas principales | Restricciones |
+|---|---|---|
+| `users` | `id`, `name` (100), `email` (150), `password_hash`, `gender` (`male`/`female`), `birth_date` (opcional), `bodyweight_kg` (5,2), `created_at` | `email` único |
+| `muscle_groups` | `id`, `name` (50) | `name` único |
+| `exercises` | `id`, `name` (100), `muscle_group_id`, `is_anchor` | `name` único |
+| `strength_standards` | `id`, `exercise_id`, `gender`, `rank_level`, `bodyweight_ratio` (4,2) | único (`exercise_id`, `gender`, `rank_level`) |
+| `workout_sessions` | `id`, `user_id`, `session_date` (fecha), `notes` | — |
+| `workout_sets` | `id`, `session_id`, `exercise_id`, `weight_kg` (6,2), `reps`, `set_order` | — |
+| `personal_records` | `id`, `user_id`, `exercise_id`, `estimated_1rm` (6,2), `achieved_at` | — |
+| `user_ranks` | `id`, `user_id`, `muscle_group_id`, `current_rank`, `updated_at` | único (`user_id`, `muscle_group_id`) |
+| `leagues` | `id`, `name`, `season_start`, `season_end` | — |
+| `league_members` | `id`, `league_id`, `user_id`, `total_volume_kg` (10,2) | único (`league_id`, `user_id`) |
 
----
+Las claves foráneas del núcleo usan `ON DELETE RESTRICT`: no se puede borrar un usuario que tenga sesiones, PR, rangos o membresías sin borrar antes esos datos.
 
-## 3. Lógica de cálculo (pseudocódigo en Node/Sequelize)
+### Métricas avanzadas (migración `20261006000000-phase1-advanced-workout-metrics`)
+
+| Cambio | Detalle |
+|---|---|
+| `workout_sets` + `set_type` | `warmup` / `normal` / `failure` / `drop_set`, por defecto `normal` |
+| `workout_sets` + `rest_seconds`, `actual_rest_seconds` | Descanso planeado y real (segundos), opcionales |
+| `workout_sets` + `notes` | Texto libre |
+| `user_rest_preferences` | `user_id` (único), `default_rest_seconds` (90), `default_warmup_rest_seconds` (60) |
+| `exercise_plate_config` | `user_id`, `plate_kg` (5,2); único (`user_id`, `plate_kg`) |
+
+### Rutinas (migración `20261006010000-phase2-routine-templates`)
+
+| Tabla | Columnas principales | Restricciones |
+|---|---|---|
+| `workout_templates` | `id`, `user_id`, `name`, `description`, `routine_type` (`single`/`superset`/`circuit`) | único (`user_id`, `name`) |
+| `workout_template_exercises` | `template_id`, `exercise_id`, `position`, `target_sets`, `target_reps`, `target_weight_kg`, `rest_seconds` (90), `grouping` (`main`/`paired`/`circuit`) | índice (`template_id`, `position`) |
+
+Estas tablas, igual que `user_rest_preferences` y `exercise_plate_config`, usan `ON DELETE CASCADE`.
+
+### Notas de diseño
+
+- `personal_records` funciona como **historial de PR** cuando se registran series (una fila por cada nuevo máximo), pero tras editar o borrar una serie el backend **borra y recrea** una sola fila por ejercicio, perdiendo `achieved_at` histórico. Es una inconsistencia conocida.
+- `league_members.total_volume_kg` es un valor derivado que se recalcula desde las series; no es fuente de verdad.
+- La migración de fase 1 envuelve sus `addColumn`/`addConstraint` en `.catch(() => undefined)`: si uno de esos pasos falla, la migración continúa sin avisar y puede dejar el esquema incompleto.
+
+## 4. Pseudocódigo de referencia
+
+Versión simplificada de `services/rankService.js` (la real usa `findOrCreate` y consulta los estándares de la base, con respaldo en código):
 
 ```javascript
-function estimar1RM(peso, reps) {
-  return peso * (1 + reps / 30);
-}
+const ORDEN = ['bronce', 'plata', 'oro', 'platino', 'diamante'];
 
 async function recalcularRangoGrupo(userId, muscleGroupId) {
   const user = await User.findByPk(userId);
-  const ejerciciosAncla = await Exercise.findAll({
-    where: { muscleGroupId, isAnchor: true }
-  });
+  const anclas = await Exercise.findAll({ where: { muscleGroupId, isAnchor: true } });
 
   const rangos = [];
-  for (const exercise of ejerciciosAncla) {
+  for (const ejercicio of anclas) {
     const pr = await PersonalRecord.findOne({
-      where: { userId, exerciseId: exercise.id },
-      order: [['estimated_1rm', 'DESC']]
+      where: { userId, exerciseId: ejercicio.id },
+      order: [['estimated1rm', 'DESC']],
     });
     if (!pr) continue;
-
-    const ratio = pr.estimated1rm / user.bodyweightKg;
-    const estandares = await StrengthStandard.findAll({
-      where: { exerciseId: exercise.id, gender: user.gender },
-      order: [['bodyweight_ratio', 'ASC']]
-    });
-    rangos.push(resolverRango(ratio, estandares, exercise.name));
+    const ratio = Number(pr.estimated1rm) / Number(user.bodyweightKg);
+    rangos.push(await calcularRangoPorRatio(ejercicio.id, user.gender, ratio));
   }
 
-  const nuevoRango = rangos.reduce((highest, rank) => (
-    ordenRangos.indexOf(rank) > ordenRangos.indexOf(highest) ? rank : highest
-  ), 'bronce');
-  await UserRank.upsert({ userId, muscleGroupId, currentRank: nuevoRango });
-}
-
-async function recalcularRangosTrasCambiarPeso(userId) {
-  const gruposConRangoOPr = await obtenerGruposAnclaConRangoOPr(userId);
-  for (const muscleGroupId of gruposConRangoOPr) {
-    await recalcularRangoGrupo(userId, muscleGroupId);
-  }
+  const nuevo = rangos.reduce(
+    (max, r) => (ORDEN.indexOf(r) > ORDEN.indexOf(max) ? r : max), 'bronce');
+  // crea o actualiza la fila de user_ranks (userId, muscleGroupId)
 }
 ```
 
-## 4. Estado actual de implementación
+## 5. Validación pendiente
 
-La base de datos ya incluye la estructura principal para usuarios, sesiones, series, rangos, PRs, rutinas y ligas. El backend recalcula PRs y rangos al registrar, editar o borrar series; también recalcula los rangos existentes cuando cambia el peso corporal del perfil. Los grupos usan el mayor rango actual de sus ejercicios ancla y vuelven a bronce si ya no conservan un PR elegible.
-
-## 5. Reglas pendientes para validación real
-
-Las tablas de umbrales siguen siendo un punto de referencia útil, no una firma estadística definitiva para todos los ejercicios. El siguiente refinamiento real del producto requiere:
-
-- validar la fuente y población de cada estándar con usuarios reales
-- confirmar qué series son elegibles para cada ejercicio y variante
-- validar con usuarios reales la fuente y sensibilidad de los estándares calculados con el peso actual del perfil; el esquema no conserva el peso histórico por sesión
-
-La decisión de usar Epley ya está aplicada y validada en la lógica del backend. El ranking por temporadas forma parte del flujo activo de ligas, pero su ajuste final sigue siendo un punto de tunning con uso real.
+- Validar la fuente y la población de cada estándar con usuarios reales.
+- Confirmar qué series y variantes de ejercicio son elegibles para PR (hoy cuentan todas, incluidas las de calentamiento).
+- Decidir si se conserva el peso corporal por sesión (hoy los PR históricos se comparan con el peso actual).

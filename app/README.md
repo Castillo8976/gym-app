@@ -82,3 +82,28 @@ npx expo-doctor
 ```
 
 La validación completa requiere una instancia local de MySQL/MariaDB migrada y el backend activo; la app también incluye una comprobación de salud del backend para validar el estado de la API.
+
+## Estructura del código
+
+```
+app/
+├── App.js          # toda la interfaz: login, pestañas Entrenar/Historial/Perfil y hojas modales
+├── src/api.js      # cliente HTTP: una función por endpoint de la API
+├── index.js        # punto de entrada de Expo
+├── app.json        # configuración de Expo
+└── assets/         # iconos y splash
+```
+
+- `src/api.js` lee `EXPO_PUBLIC_API_URL`; si no existe, usa `http://10.0.2.2:3000/api` en Android y `http://localhost:3000/api` en el resto.
+- El token de sesión se guarda con `expo-secure-store` (Android/iOS) o `localStorage` (web).
+- Pantallas y flujo: [`docs/05-pantallas-y-flujo.md`](../docs/05-pantallas-y-flujo.md).
+
+## Problemas frecuentes
+
+| Síntoma | Causa y solución |
+|---|---|
+| "No se pudo conectar con la API (…)" | El backend no está activo o `EXPO_PUBLIC_API_URL` apunta mal. En emulador Android usa `10.0.2.2`; en teléfono físico, la IP LAN del ordenador. Reinicia Metro tras cambiar la variable |
+| El teléfono no llega al backend | Deben estar en la misma red y el firewall debe permitir el puerto 3000 |
+| El perfil muestra "Sin conexión" | Comprueba `GET /api/health` en el navegador del ordenador |
+| Rangos o PRs no cambian al guardar una serie | Se refrescan al volver a cargar los datos de la app (reabrirla) |
+| Las rutinas no se guardan o salen vacías | Bug conocido del backend, ver [`docs/06`](../docs/06-estado-y-limitaciones.md#bugs-conocidos) |
