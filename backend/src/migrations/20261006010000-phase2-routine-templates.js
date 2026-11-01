@@ -51,4 +51,11 @@ async function up(queryInterface, Sequelize) {
   await queryInterface.addIndex('workout_template_exercises', ['template_id', 'position']);
 }
 
-module.exports = { up };
+async function down(queryInterface) {
+  await queryInterface.removeIndex('workout_template_exercises', ['template_id', 'position']);
+  await queryInterface.dropTable('workout_template_exercises');
+  await queryInterface.removeConstraint('workout_templates', 'workout_templates_user_name_unique');
+  await queryInterface.dropTable('workout_templates');
+}
+
+module.exports = { up, down };
