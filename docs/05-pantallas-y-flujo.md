@@ -1,6 +1,6 @@
 # Pantallas y flujo de usuario
 
-La app (React Native + Expo) vive en un único componente, `app/App.js`, con navegación por **tres pestañas** (`Entrenar`, `Historial`, `Perfil`) y hojas modales para crear rutinas, ligas y elegir ejercicios. No usa una librería de navegación.
+La app (React Native + Expo) vive en un único componente, `app/App.js`, con navegación manual por Inicio, Entrenar, Rangos, Liga e Historial; Perfil se abre desde el avatar. También usa hojas modales para crear rutinas, ligas y elegir ejercicios. No usa una librería de navegación.
 
 ## Flujo principal
 
@@ -37,7 +37,7 @@ flowchart TD
 - Al guardar una serie, el backend recalcula PR y rango; la app solo recarga el historial y las últimas series, así que **Rangos y PRs se actualizan al volver a cargar los datos** (por ejemplo, al reabrir la app), no al instante.
 - Cambiar el peso en *Perfil* recalcula los rangos existentes.
 - El género solo ofrece dos opciones (`male`/`female`) porque los estándares de fuerza están definidos así.
-- Las rutinas dependen de endpoints que hoy fallan con 500 (ver [`06`](./06-estado-y-limitaciones.md#bugs-conocidos)). Al cargar, la app ignora ese error y muestra la lista de rutinas vacía; al intentar *Guardar rutina* se muestra el mensaje de error.
+- Las rutinas se cargan y guardan mediante endpoints autenticados; si una petición falla, la app muestra el error recibido y no trata la lista vacía como una rutina válida.
 
 ## Ampliaciones futuras
 

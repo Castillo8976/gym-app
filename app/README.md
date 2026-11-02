@@ -17,7 +17,7 @@ npm install
 npx expo install --check
 ```
 
-La app usa Expo SDK `57.0.27`, React Native `0.86.3`, `expo-dev-client` `57.0.19`, `expo-secure-store` `57.0.4`, `expo-system-ui` `57.0.4` y soporte web con `react-dom` `19.2.3` y `react-native-web` `0.21.2`. Las versiones exactas quedan registradas también en `package-lock.json`. Usa `npx expo install <paquete>` al añadir módulos nativos para mantener la matriz del SDK. Mantén `expo-dev-client` instalado: las pruebas de módulos nativos deben ejecutarse en un development build, no solo en Expo Go.
+La app usa Expo SDK `58.0.22`, React Native `0.88.1`, `expo-dev-client` `58.0.18`, `expo-secure-store` `58.0.2`, `expo-system-ui` `58.0.7` y soporte web con `react-dom` `19.3.0` y `react-native-web` `0.21.4`. Las versiones exactas quedan registradas también en `package-lock.json`. Usa `npx expo install <paquete>` al añadir módulos nativos para mantener la matriz del SDK. Mantén `expo-dev-client` instalado: las pruebas de módulos nativos deben ejecutarse en un development build, no solo en Expo Go.
 
 ## Conectar con la API
 
@@ -106,4 +106,4 @@ app/
 | El teléfono no llega al backend | Deben estar en la misma red y el firewall debe permitir el puerto 3000 |
 | El perfil muestra "Sin conexión" | Comprueba `GET /api/health` en el navegador del ordenador |
 | Rangos o PRs no cambian al guardar una serie | Se refrescan al volver a cargar los datos de la app (reabrirla) |
-| Las rutinas no se guardan o salen vacías | Bug conocido del backend, ver [`docs/06`](../docs/06-estado-y-limitaciones.md#bugs-conocidos) |
+| Las rutinas no se guardan o salen vacías | Comprueba el mensaje de error mostrado y que el backend tenga las migraciones aplicadas |

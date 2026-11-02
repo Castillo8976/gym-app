@@ -54,6 +54,7 @@ async function listLeagues(req, res, next) {
       for (const row of rows) {
         memberCountsByLeague.set(Number(row.leagueId), Number(row.memberCount || 0));
       }
+
     }
 
     const payload = leagues.map((league) => {
@@ -72,6 +73,27 @@ async function listLeagues(req, res, next) {
     });
 
     res.json(payload);
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function listDiscoverableLeagues(req, res, next) {
+  try {
+    const [allLeagues, memberships] = await Promise.all([
+      League.findAll({ order: [['seasonStart', 'DESC']] }),
+      LeagueMember.findAll({ where: { userId: req.userId }, attributes: ['leagueId'] }),
+    ]);
+    const joinedIds = new Set(memberships.map((membership) => Number(membership.leagueId)));
+    res.json(allLeagues
+      .filter((league) => !joinedIds.has(Number(league.id)))
+      .map((league) => ({
+        id: league.id,
+        name: league.name,
+        seasonStart: league.seasonStart,
+        seasonEnd: league.seasonEnd,
+        isJoined: false,
+      })));
   } catch (error) {
     next(error);
   }
@@ -150,4 +172,4 @@ async function getLeagueMembers(req, res, next) {
   }
 }
 
-module.exports = { listLeagues, createLeague, joinLeague, getLeagueMembers };
+module.exports = { listLeagues, listDiscoverableLeagues, createLeague, joinLeague, getLeagueMembers };

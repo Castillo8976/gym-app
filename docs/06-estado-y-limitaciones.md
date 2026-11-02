@@ -6,7 +6,7 @@ Este documento resume lo que se **verificó leyendo el código** del commit `fc3
 
 - Pruebas del backend (`npm test`): 39 pruebas, 38 pasan y 1 se omite a propósito (la de integración con base de datos, que es opt-in con `RUN_DB_INTEGRATION=1`).
 - No se ejecutó el backend contra una base de datos real ni la app en un dispositivo en este entorno.
-- `app/App.js` (1.281 líneas) se revisó por estructura y por las pantallas principales, no línea por línea.
+- `app/App.js` contiene la interfaz principal y se valida con exportación web y diagnósticos de VS Code.
 
 ## Bugs funcionales conocidos
 
@@ -33,7 +33,7 @@ Corregido: el validador calcula la fecha del calendario local cuando no se recib
 | Ligas | Clasifican por volumen absoluto, no por fuerza relativa; no hay ascensos/descensos; crear ligas está restringido por allow-list y la clasificación solo es visible para miembros |
 | Sugerencia de discos | Calcula sobre el peso total, sin descontar barra ni dividir por lado |
 | Rendimiento | `GET /users/me/last-sets` carga todo el historial y filtra en memoria; `GET /leagues` carga todos los miembros de todas las ligas |
-| Actualización de UI | Tras guardar una serie, Rangos y PRs no se recargan en pantalla |
+| Actualización de UI | Tras guardar una serie, el historial y referencias recientes se actualizan; rangos y PRs se vuelven a cargar al restaurar o recargar la app |
 | Género | Solo `male`/`female` en el modelo y los estándares |
 | `App.js` | Un único componente con unos 60 `useState`; navegación manual por pestañas |
 
@@ -41,7 +41,7 @@ Corregido: el validador calcula la fecha del calendario local cuando no se recib
 
 Existe: bcrypt, validación de `JWT_SECRET` al arrancar, JWT con expiración, filtrado de datos por usuario, comparación de contraseña aun cuando el email no existe (mitigación de timing), `helmet`, rate limiting en `/auth`, CORS por allow-list, token en `expo-secure-store`.
 
-Implementado: refresh tokens rotatorios/revocables, recuperación de contraseña y verificación de email.
+Implementado: refresh tokens rotatorios/revocables, persistencia del refresh token en el cliente y recuperación automática al restaurar la sesión. Recuperación de contraseña y verificación de email están disponibles en la API.
 Falta conectar un proveedor de correo transaccional y definir un sistema de roles persistente.
 
 ## Camino a producción y tiendas

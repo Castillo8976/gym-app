@@ -6,6 +6,12 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || (
     : 'http://localhost:3000/api'
 );
 
+let authRefreshHandler = null;
+
+export function setAuthRefreshHandler(handler) {
+  authRefreshHandler = handler;
+}
+
 async function request(path, { method = 'GET', token, body } = {}) {
   let response;
   try {
@@ -22,6 +28,12 @@ async function request(path, { method = 'GET', token, body } = {}) {
   }
 
   const result = await response.json().catch(() => ({}));
+  if (response.status === 401 && token && authRefreshHandler && !path.startsWith('/auth/')) {
+    const refreshedToken = await authRefreshHandler();
+    if (refreshedToken) {
+      return request(path, { method, token: refreshedToken, body });
+    }
+  }
   if (!response.ok) {
     throw new Error(result.message || `La API respondió con estado ${response.status}`);
   }
@@ -31,9 +43,12 @@ async function request(path, { method = 'GET', token, body } = {}) {
 export const api = {
   register: (body) => request('/auth/register', { method: 'POST', body }),
   login: (body) => request('/auth/login', { method: 'POST', body }),
+  refresh: (refreshToken) => request('/auth/refresh', { method: 'POST', body: { token: refreshToken } }),
+  logout: (refreshToken) => request('/auth/logout', { method: 'POST', body: { token: refreshToken } }),
   getHealth: () => request('/health'),
   getProfile: (token) => request('/users/me', { token }),
   updateProfile: (token, body) => request('/users/me', { method: 'PATCH', token, body }),
+  deleteAccount: (token) => request('/users/me', { method: 'DELETE', token }),
   getExercises: () => request('/exercises'),
   createSession: (token, body) => request('/workout-sessions', { method: 'POST', token, body }),
   getSessions: (token) => request('/workout-sessions', { token }),
@@ -50,6 +65,7 @@ export const api = {
   getRanks: (token) => request('/users/me/ranks', { token }),
   getRecords: (token) => request('/users/me/records', { token }),
   getLeagues: (token) => request('/leagues', { token }),
+  getDiscoverableLeagues: (token) => request('/leagues/discover', { token }),
   createLeague: (token, body) => request('/leagues', { method: 'POST', token, body }),
   joinLeague: (token, id) => request(`/leagues/${id}/join`, { method: 'POST', token }),
   getLeagueMembers: (token, id) => request(`/leagues/${id}/members`, { token }),

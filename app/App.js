@@ -2,6 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as SecureStore from 'expo-secure-store';
 import { useEffect, useState } from 'react';
 import {
+  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
@@ -15,9 +16,10 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { api } from './src/api';
+import { api, setAuthRefreshHandler } from './src/api';
 
 const TOKEN_KEY = 'gym-app-session-token';
+const REFRESH_TOKEN_KEY = 'gym-app-refresh-token';
 
 function getStoredToken() {
   return Platform.OS === 'web'
@@ -35,6 +37,24 @@ function deleteStoredToken() {
   return Platform.OS === 'web'
     ? globalThis.localStorage.removeItem(TOKEN_KEY)
     : SecureStore.deleteItemAsync(TOKEN_KEY);
+}
+
+function getStoredRefreshToken() {
+  return Platform.OS === 'web'
+    ? globalThis.localStorage.getItem(REFRESH_TOKEN_KEY)
+    : SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+}
+
+function setStoredRefreshToken(token) {
+  return Platform.OS === 'web'
+    ? globalThis.localStorage.setItem(REFRESH_TOKEN_KEY, token)
+    : SecureStore.setItemAsync(REFRESH_TOKEN_KEY, token);
+}
+
+function deleteStoredRefreshToken() {
+  return Platform.OS === 'web'
+    ? globalThis.localStorage.removeItem(REFRESH_TOKEN_KEY)
+    : SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
 }
 
 const COLORS = {
@@ -117,6 +137,27 @@ function getWeekDays(sessions) {
   });
 }
 
+function getTrainingStreak(sessions) {
+  const dates = new Set((sessions || []).map((session) => String(session.sessionDate).slice(0, 10)));
+  let cursor = new Date(`${getLocalDate()}T12:00:00`);
+  let streak = 0;
+  while (dates.has(cursor.toISOString().slice(0, 10))) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
+
+function getLastSessionSummary(sessions) {
+  const latest = sessions?.[0];
+  if (!latest) return null;
+  return {
+    date: formatDate(latest.sessionDate),
+    notes: latest.notes || 'Sesión registrada',
+    sets: Number(latest.setCount || latest.WorkoutSets?.length || 0),
+  };
+}
+
 function Field({ label, value, onChangeText, placeholder, keyboardType, secureTextEntry }) {
   return (
     <View style={styles.fieldGroup}>
@@ -173,6 +214,7 @@ function App() {
   const [ranks, setRanks] = useState([]);
   const [records, setRecords] = useState([]);
   const [leagues, setLeagues] = useState([]);
+  const [discoverableLeagues, setDiscoverableLeagues] = useState([]);
   const [profileName, setProfileName] = useState('');
   const [profileWeight, setProfileWeight] = useState('');
   const [showLeagueBuilder, setShowLeagueBuilder] = useState(false);
@@ -205,10 +247,30 @@ function App() {
   const [restSecondsLeft, setRestSecondsLeft] = useState(0);
   const [restActive, setRestActive] = useState(false);
 
+  useEffect(() => {
+    setAuthRefreshHandler(async () => {
+      const refreshToken = await getStoredRefreshToken();
+      if (!refreshToken) return null;
+      try {
+        const refreshed = await api.refresh(refreshToken);
+        await setStoredToken(refreshed.token);
+        await setStoredRefreshToken(refreshed.refreshToken);
+        setToken(refreshed.token);
+        return refreshed.token;
+      } catch {
+        await deleteStoredToken();
+        await deleteStoredRefreshToken();
+        setToken(null);
+        setUser(null);
+        return null;
+      }
+    });
+  }, []);
+
   const selectedExerciseReference = lastSets.find((entry) => entry.exerciseId === selectedExercise?.id) || null;
 
   async function loadData(authToken) {
-    const [exerciseList, history, restPrefs, plates, lastReferenceSets, routineList, rankList, recordList, leagueList] = await Promise.all([
+    const [exerciseList, history, restPrefs, plates, lastReferenceSets, routineList, rankList, recordList, leagueList, discoverableLeagueList] = await Promise.all([
       api.getExercises(),
       api.getSessions(authToken),
       api.getRestPreferences(authToken),
@@ -218,6 +280,7 @@ function App() {
       api.getRanks(authToken).catch(() => []),
       api.getRecords(authToken).catch(() => []),
       api.getLeagues(authToken).catch(() => []),
+      api.getDiscoverableLeagues(authToken).catch(() => []),
     ]);
     setExercises(exerciseList);
     setSessions(history);
@@ -228,6 +291,7 @@ function App() {
     setRanks(rankList || []);
     setRecords(recordList || []);
     setLeagues(leagueList || []);
+    setDiscoverableLeagues(discoverableLeagueList || []);
   }
 
   useEffect(() => {
@@ -257,14 +321,26 @@ function App() {
   useEffect(() => {
     async function restoreSession() {
       try {
-        const savedToken = await getStoredToken();
+        let savedToken = await getStoredToken();
+        const savedRefreshToken = await getStoredRefreshToken();
         if (!savedToken) return;
-        const profile = await api.getProfile(savedToken);
+        let profile;
+        try {
+          profile = await api.getProfile(savedToken);
+        } catch (error) {
+          if (!savedRefreshToken) throw error;
+          const refreshed = await api.refresh(savedRefreshToken);
+          savedToken = refreshed.token;
+          await setStoredToken(savedToken);
+          await setStoredRefreshToken(refreshed.refreshToken);
+          profile = await api.getProfile(savedToken);
+        }
         setToken(savedToken);
         setUser(profile);
         await loadData(savedToken);
       } catch (error) {
         await deleteStoredToken();
+        await deleteStoredRefreshToken();
         setNotice(error.message);
       } finally {
         setLoading(false);
@@ -331,7 +407,8 @@ function App() {
       }
       const result = await api.login({ email: email.trim(), password });
       await setStoredToken(result.token);
-      const [profile, exerciseList, history, restPrefs, plates, lastReferenceSets, routineList, rankList, recordList, leagueList] = await Promise.all([
+      await setStoredRefreshToken(result.refreshToken);
+      const [profile, exerciseList, history, restPrefs, plates, lastReferenceSets, routineList, rankList, recordList, leagueList, discoverableLeagueList] = await Promise.all([
         api.getProfile(result.token),
         api.getExercises(),
         api.getSessions(result.token),
@@ -342,6 +419,7 @@ function App() {
         api.getRanks(result.token).catch(() => []),
         api.getRecords(result.token).catch(() => []),
         api.getLeagues(result.token).catch(() => []),
+        api.getDiscoverableLeagues(result.token).catch(() => []),
       ]);
       setToken(result.token);
       setUser(profile);
@@ -354,6 +432,7 @@ function App() {
       setRanks(rankList || []);
       setRecords(recordList || []);
       setLeagues(leagueList || []);
+      setDiscoverableLeagues(discoverableLeagueList || []);
     } catch (error) {
       setNotice(error.message);
     } finally {
@@ -451,7 +530,7 @@ function App() {
     setActiveSession(null);
     setSelectedExercise(null);
     setSetCount(0);
-    setType('normal');
+    setSetType('normal');
     setRestSeconds(String(restPreferences.defaultRestSeconds || 90));
     setActualRestSeconds('');
     setSetNotes('');
@@ -467,8 +546,12 @@ function App() {
   async function reloadLeagues() {
     if (!token) return;
     try {
-      const leagueList = await api.getLeagues(token).catch(() => []);
+      const [leagueList, discoverableLeagueList] = await Promise.all([
+        api.getLeagues(token),
+        api.getDiscoverableLeagues(token),
+      ]);
       setLeagues(leagueList || []);
+      setDiscoverableLeagues(discoverableLeagueList || []);
     } catch (error) {
       setNotice(error.message);
     }
@@ -678,13 +761,44 @@ function App() {
   }
 
   async function handleLogout() {
+    const refreshToken = await getStoredRefreshToken();
+    if (refreshToken) await api.logout(refreshToken).catch(() => {});
     await deleteStoredToken();
+    await deleteStoredRefreshToken();
     setToken(null);
     setUser(null);
     setActiveSession(null);
     setSessions([]);
     setExercises([]);
     setNotice('');
+  }
+
+  function handleDeleteAccount() {
+    Alert.alert(
+      'Eliminar cuenta',
+      'Se eliminarán tu perfil, sesiones, rangos y ligas. Esta acción no se puede deshacer.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            setBusy(true);
+            try {
+              await api.deleteAccount(token);
+              await deleteStoredToken();
+              await deleteStoredRefreshToken();
+              setToken(null);
+              setUser(null);
+            } catch (error) {
+              setNotice(error.message);
+            } finally {
+              setBusy(false);
+            }
+          },
+        },
+      ],
+    );
   }
 
   if (loading) {
@@ -745,6 +859,8 @@ function App() {
 
   const detailSets = sessionDetail?.WorkoutSets || sessionDetail?.workoutSets || [];
   const weekDays = getWeekDays(sessions);
+  const lastSessionSummary = getLastSessionSummary(sessions);
+  const trainingStreak = getTrainingStreak(sessions);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -754,7 +870,7 @@ function App() {
           <View style={styles.brandMark}><Text style={styles.brandMarkText}>G</Text></View>
           <Text style={styles.brandName}>FORMA</Text>
         </View>
-        <Pressable accessibilityLabel="Cerrar sesión" onPress={handleLogout} style={styles.avatarButton}>
+        <Pressable accessibilityLabel="Abrir perfil" onPress={() => setTab('profile')} style={styles.avatarButton}>
           <Text style={styles.avatarText}>{(user?.name || 'U').slice(0, 1).toUpperCase()}</Text>
         </Pressable>
       </View>}
@@ -772,6 +888,9 @@ function App() {
         <Pressable onPress={() => setTab('league')} style={[styles.tab, tab === 'league' && styles.tabActive]}>
           <Text style={[styles.tabText, tab === 'league' && styles.tabTextActive]}>Liga</Text>
         </Pressable>
+        <Pressable onPress={() => setTab('history')} style={[styles.tab, tab === 'history' && styles.tabActive]}>
+          <Text style={[styles.tabText, tab === 'history' && styles.tabTextActive]}>Historial</Text>
+        </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={styles.pageContent} keyboardShouldPersistTaps="handled">
@@ -782,7 +901,7 @@ function App() {
                   <Text style={styles.eyebrow}>{formatDate(getLocalDate())}</Text>
                 <Text style={styles.homeTitle}>Hola, {user?.name?.split(' ')[0] || 'Atleta'}</Text>
               </View>
-              <View style={styles.streakChip}><Text style={styles.streakText}>5 semanas seguidas</Text></View>
+              <View style={styles.streakChip}><Text style={styles.streakText}>{trainingStreak} días seguidos</Text></View>
             </View>
 
             <View style={[styles.card, styles.weekCard]}>
@@ -798,8 +917,8 @@ function App() {
 
             <View style={styles.heroCard}>
               <Text style={styles.heroEyebrow}>HOY TE TOCA</Text>
-              <Text style={styles.heroTitle}>Empuje A</Text>
-              <Text style={styles.heroCopy}>5 ejercicios · 52 min · Press de banca 67,5 kg × 8 la última vez</Text>
+              <Text style={styles.heroTitle}>{lastSessionSummary ? 'Repite tu progreso' : 'Tu primer entrenamiento'}</Text>
+              <Text style={styles.heroCopy}>{lastSessionSummary ? `${lastSessionSummary.notes} · ${lastSessionSummary.sets} series · ${lastSessionSummary.date}` : 'Registra tu primera sesión para ver aquí tu progreso real.'}</Text>
               <PrimaryButton label="Empezar entrenamiento" loading={busy} onPress={handleStartSession} />
             </View>
 
@@ -811,23 +930,25 @@ function App() {
                   ['Hombros', '#7FB8B0'], ['Brazos', '#8DB5E0'],
                 ].map(([label], index) => {
                   const rank = ranks.find((entry) => (entry.MuscleGroup?.name || '').toLowerCase() === label.toLowerCase());
-                  const rankName = rank?.currentRank || 'bronce';
-                  const color = getRankColor(rankName);
+                  const rankName = rank?.currentRank || rank?.rankLevel || '';
+                  const color = rank ? getRankColor(rankName) : COLORS.muted;
                   return (
                     <Pressable key={label} onPress={() => setTab('ranks')} style={styles.rangeItem}>
-                      <View style={[styles.rankHex, { borderColor: color, backgroundColor: `${color}26` }]}><Text style={[styles.rankNumber, { color }]}>{rank?.level || rank?.rankLevel || index + 1}</Text></View>
+                      <View style={[styles.rankHex, { borderColor: color, backgroundColor: rank ? `${color}26` : 'transparent' }]}><Text style={[styles.rankNumber, { color }]}>{rank?.level || rank?.rankLevel || '—'}</Text></View>
                       <Text style={styles.rangeName}>{label}</Text>
-                      <Text style={[styles.rangeRank, { color }]}>{rankName.charAt(0).toUpperCase() + rankName.slice(1)}</Text>
+                      <Text style={[styles.rangeRank, { color }]}>{rank ? formatRank(rankName) : 'Sin datos'}</Text>
                     </Pressable>
                   );
                 })}
               </View>
             </View>
 
-            <View style={[styles.card, styles.leagueCard]}>
-              <View><Text style={styles.leagueTitle}>{leagues[0]?.name || 'Liga Plata'} · puesto {leagues[0]?.position || '—'}</Text><Text style={styles.mutedText}>Termina en 4 días · zona de ascenso</Text></View>
-              <Text style={styles.leagueVolume}>48.250 kg</Text>
-            </View>
+            {leagues[0] && (
+              <View style={[styles.card, styles.leagueCard]}>
+                <View><Text style={styles.leagueTitle}>{leagues[0].name}</Text><Text style={styles.mutedText}>{formatDate(leagues[0].seasonStart)} — {formatDate(leagues[0].seasonEnd)}</Text></View>
+                <Text style={styles.leagueVolume}>{Number(leagues[0].myVolumeKg || 0).toLocaleString('es', { maximumFractionDigits: 2 })} kg</Text>
+              </View>
+            )}
           </>
         ) : tab === 'train' ? (
           <>
@@ -1041,6 +1162,22 @@ function App() {
                 <Text style={styles.bodyCopy}>{formatDate(league.startDate)} — {formatDate(league.endDate)}</Text>
               </Pressable>
             ))}
+            {discoverableLeagues.length > 0 && (
+              <View style={styles.recentSection}>
+                <View style={styles.sectionHeadingRow}><Text style={styles.sectionTitle}>Ligas disponibles</Text></View>
+                {discoverableLeagues.map((league) => (
+                  <View key={league.id} style={styles.routineCard}>
+                    <View style={styles.sectionHeadingRow}>
+                      <View style={styles.flex}>
+                        <Text style={styles.exerciseName}>{league.name}</Text>
+                        <Text style={styles.bodyCopy}>{formatDate(league.seasonStart)} — {formatDate(league.seasonEnd)}</Text>
+                      </View>
+                      <Pressable onPress={() => handleJoinLeague(league.id)} style={styles.primaryButtonSecondary}><Text style={styles.primaryButtonText}>Unirse</Text></Pressable>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
             {!!leagueDetail && <View style={styles.workoutPanel}><Text style={styles.sectionTitle}>{leagueDetail.league.name}</Text><Text style={styles.bodyCopy}>Miembros: {(leagueDetail.members || []).length}</Text></View>}
           </>
         ) : tab === 'profile' ? (
@@ -1070,6 +1207,10 @@ function App() {
               <Field label="Peso corporal (kg)" value={profileWeight} onChangeText={setProfileWeight} placeholder="Ej. 68.5" keyboardType="decimal-pad" />
               {!!notice && <Text accessibilityRole="alert" style={styles.notice}>{notice}</Text>}
               <PrimaryButton label="Guardar cambios" loading={busy} onPress={handleSaveProfile} />
+              <PrimaryButton label="Cerrar sesión" disabled={busy} onPress={handleLogout} />
+              <Pressable onPress={handleDeleteAccount} disabled={busy} style={styles.dangerButton}>
+                <Text style={styles.dangerButtonText}>Eliminar cuenta</Text>
+              </Pressable>
             </View>
 
             {ranks.length > 0 && (
@@ -1356,6 +1497,8 @@ const styles = StyleSheet.create({
   panelBody: { color: '#E5D6FF', fontSize: 13, lineHeight: 19 },
   primaryButton: { minHeight: 50, paddingHorizontal: 18, backgroundColor: COLORS.white, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   primaryButtonSecondary: { minHeight: 44, paddingHorizontal: 18, backgroundColor: COLORS.palePurple, borderRadius: 6, alignItems: 'center', justifyContent: 'center', marginTop: 10, marginBottom: 8 },
+  dangerButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  dangerButtonText: { color: '#E58B8B', fontWeight: '700' },
   primaryButtonText: { color: '#0B0B10', fontSize: 14, fontWeight: '800' },
   disabledButton: { opacity: 0.48 },
   pressedButton: { opacity: 0.82 },
