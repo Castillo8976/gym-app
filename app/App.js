@@ -139,9 +139,11 @@ function getWeekDays(sessions) {
 
 function getTrainingStreak(sessions) {
   const dates = new Set((sessions || []).map((session) => String(session.sessionDate).slice(0, 10)));
-  let cursor = new Date(`${getLocalDate()}T12:00:00`);
+  const [year, month, day] = getLocalDate().split('-').map(Number);
+  let cursor = new Date(year, month - 1, day);
   let streak = 0;
-  while (dates.has(cursor.toISOString().slice(0, 10))) {
+  const localDateValue = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  while (dates.has(localDateValue(cursor))) {
     streak += 1;
     cursor.setDate(cursor.getDate() - 1);
   }
@@ -247,6 +249,11 @@ function App() {
   const [plateSuggestion, setPlateSuggestion] = useState(null);
   const [restSecondsLeft, setRestSecondsLeft] = useState(0);
   const [restActive, setRestActive] = useState(false);
+  const [exerciseSearch, setExerciseSearch] = useState('');
+  const [editingSet, setEditingSet] = useState(null);
+  const [editingWeight, setEditingWeight] = useState('');
+  const [editingReps, setEditingReps] = useState('');
+  const [editingSetType, setEditingSetType] = useState('normal');
 
   useEffect(() => {
     setAuthRefreshHandler(async () => {
@@ -681,6 +688,49 @@ function App() {
       setNotice(error.message);
     } finally {
       setBusy(false);
+    }
+
+    function openSetEditor(set) {
+      setEditingSet(set);
+      setEditingWeight(String(set.weightKg ?? ''));
+      setEditingReps(String(set.reps ?? ''));
+      setEditingSetType(set.setType || 'normal');
+    }
+
+    async function handleUpdateSet() {
+      if (!editingSet || !sessionDetail?.id) return;
+      const weightKg = parseDecimal(editingWeight);
+      const reps = Number(editingReps);
+      if (!Number.isFinite(weightKg) || weightKg <= 0 || !Number.isSafeInteger(reps) || reps <= 0) {
+        setNotice('Indica una carga válida y un número entero de repeticiones mayor que cero.');
+        return;
+      }
+      setBusy(true);
+      setNotice('');
+      try {
+        await api.updateSet(token, sessionDetail.id, editingSet.id, {
+          exerciseId: editingSet.exerciseId,
+          weightKg,
+          reps,
+          setOrder: Number(editingSet.setOrder),
+          setType: editingSetType,
+          restSeconds: Number(editingSet.restSeconds || 0),
+          actualRestSeconds: Number(editingSet.actualRestSeconds || 0),
+          notes: editingSet.notes || undefined,
+        });
+        setEditingSet(null);
+        const nextSession = await api.getSession(token, sessionDetail.id);
+        setSessionDetail(nextSession);
+        setSessions(await api.getSessions(token));
+        const [nextRanks, nextRecords] = await Promise.all([api.getRanks(token), api.getRecords(token)]);
+        setRanks(nextRanks || []);
+        setRecords(nextRecords || []);
+        setNotice('Serie actualizada y progreso recalculado.');
+      } catch (error) {
+        setNotice(error.message);
+      } finally {
+        setBusy(false);
+      }
     }
   }
 
@@ -1336,7 +1386,11 @@ function App() {
               <Pressable accessibilityLabel="Cerrar catálogo" onPress={() => setShowExercises(false)} style={styles.closeButton}><Text style={styles.closeButtonText}>×</Text></Pressable>
             </View>
             <ScrollView style={styles.exerciseList}>
-              {exercises.map((exercise) => (
+              <Field label="Buscar ejercicio" value={exerciseSearch} onChangeText={setExerciseSearch} placeholder="Nombre o grupo muscular" />
+              {exercises.filter((exercise) => {
+                const query = exerciseSearch.trim().toLowerCase();
+                return !query || `${exercise.name} ${exercise.MuscleGroup?.name || ''}`.toLowerCase().includes(query);
+              }).map((exercise) => (
                 <Pressable key={exercise.id} onPress={() => { setSelectedExercise(exercise); setShowExercises(false); }} style={styles.exerciseOption}>
                   <View style={styles.exerciseDot}><Text style={styles.exerciseDotText}>{exercise.name.slice(0, 1)}</Text></View>
                   <View style={styles.flex}><Text style={styles.exerciseName}>{exercise.name}</Text><Text style={styles.exerciseGroup}>{exercise.MuscleGroup?.name || exercise.MuscleGroup?.Name || 'Ejercicio'}</Text></View>
@@ -1494,11 +1548,35 @@ function App() {
                   <View style={styles.flex}><Text style={styles.exerciseName}>{set.Exercise?.name || set.exercise?.name || 'Ejercicio'}</Text><Text style={styles.exerciseGroup}>Serie {set.setOrder}</Text></View>
                   <Text style={styles.detailMeasure}>{Number(set.weightKg).toLocaleString('es')} kg</Text>
                   <Text style={styles.detailReps}>× {set.reps}</Text>
+                  <Pressable onPress={() => openSetEditor(set)} style={styles.editSetButton}><Text style={styles.editSetText}>Editar</Text></Pressable>
                   <Pressable onPress={() => handleDeleteSet(set.id)} style={styles.deleteSetButton}><Text style={styles.deleteSetText}>Borrar</Text></Pressable>
                 </View>
               ))}
               {detailSets.length === 0 && <Text style={styles.bodyCopy}>Esta sesión todavía no tiene series registradas.</Text>}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal animationType="slide" onRequestClose={() => setEditingSet(null)} transparent visible={!!editingSet}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.detailSheet}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sectionHeadingRow}>
+              <View><Text style={styles.eyebrow}>SERIE</Text><Text style={styles.sheetTitle}>Editar serie</Text></View>
+              <Pressable accessibilityLabel="Cerrar edición" onPress={() => setEditingSet(null)} style={styles.closeButton}><Text style={styles.closeButtonText}>×</Text></Pressable>
+            </View>
+            <Field label="Carga (kg)" value={editingWeight} onChangeText={setEditingWeight} placeholder="0" keyboardType="decimal-pad" />
+            <Field label="Repeticiones" value={editingReps} onChangeText={setEditingReps} placeholder="0" keyboardType="number-pad" />
+            <Text style={styles.fieldLabel}>Tipo de serie</Text>
+            <View style={styles.segmentRow}>
+              {SET_TYPE_OPTIONS.map((option) => (
+                <Pressable key={option.value} onPress={() => setEditingSetType(option.value)} style={[styles.segment, editingSetType === option.value && styles.segmentActive]}>
+                  <Text style={[styles.segmentText, editingSetType === option.value && styles.segmentTextActive]}>{option.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <PrimaryButton disabled={!editingWeight || !editingReps} loading={busy} label="Guardar cambios" onPress={handleUpdateSet} />
           </View>
         </View>
       </Modal>
@@ -1643,6 +1721,8 @@ const styles = StyleSheet.create({
   detailReps: { minWidth: 35, color: COLORS.ink, fontSize: 14, fontWeight: '700' },
   deleteSetButton: { marginLeft: 8, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, backgroundColor: COLORS.lavender },
   deleteSetText: { color: COLORS.deepPurple, fontWeight: '700', fontSize: 12 },
+  editSetButton: { paddingHorizontal: 8, paddingVertical: 6, borderRadius: 14, backgroundColor: COLORS.palePurple },
+  editSetText: { color: COLORS.deepPurple, fontWeight: '700', fontSize: 12 },
   authContainer: { flexGrow: 1, paddingHorizontal: 26, paddingTop: 23, paddingBottom: 32 },
   authHeadingWrap: { marginTop: 56, marginBottom: 30 },
   authHeading: { color: COLORS.ink, fontSize: 37, fontWeight: '800', marginBottom: 10 },
