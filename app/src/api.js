@@ -7,6 +7,7 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || (
 );
 
 let authRefreshHandler = null;
+let refreshInFlight = null;
 
 export function setAuthRefreshHandler(handler) {
   authRefreshHandler = handler;
@@ -29,7 +30,10 @@ async function request(path, { method = 'GET', token, body } = {}) {
 
   const result = await response.json().catch(() => ({}));
   if (response.status === 401 && token && authRefreshHandler && !path.startsWith('/auth/')) {
-    const refreshedToken = await authRefreshHandler();
+    refreshInFlight = refreshInFlight || Promise.resolve().then(() => authRefreshHandler());
+    const refreshedToken = await refreshInFlight.finally(() => {
+      refreshInFlight = null;
+    });
     if (refreshedToken) {
       return request(path, { method, token: refreshedToken, body });
     }
@@ -43,6 +47,10 @@ async function request(path, { method = 'GET', token, body } = {}) {
 export const api = {
   register: (body) => request('/auth/register', { method: 'POST', body }),
   login: (body) => request('/auth/login', { method: 'POST', body }),
+  requestPasswordReset: (email) => request('/auth/password-reset/request', { method: 'POST', body: { email } }),
+  resetPassword: (body) => request('/auth/password-reset/confirm', { method: 'POST', body }),
+  requestEmailVerification: (email) => request('/auth/email/verification-request', { method: 'POST', body: { email } }),
+  verifyEmail: (token) => request('/auth/email/verify', { method: 'POST', body: { token } }),
   refresh: (refreshToken) => request('/auth/refresh', { method: 'POST', body: { token: refreshToken } }),
   logout: (refreshToken) => request('/auth/logout', { method: 'POST', body: { token: refreshToken } }),
   getHealth: () => request('/health'),

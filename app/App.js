@@ -203,6 +203,7 @@ function App() {
   const [notice, setNotice] = useState('');
   const [tab, setTab] = useState('home');
   const [authMode, setAuthMode] = useState('login');
+  const [authTokenInput, setAuthTokenInput] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -405,6 +406,36 @@ function App() {
     setBusy(true);
     setNotice('');
     try {
+      if (authMode === 'forgot') {
+        await api.requestPasswordReset(email.trim());
+        setAuthMode('reset');
+        setNotice('Si la cuenta existe, revisa el correo y pega aquí el token recibido.');
+        return;
+      }
+      if (authMode === 'reset') {
+        await api.resetPassword({ token: authTokenInput.trim(), password });
+        setAuthMode('login');
+        setAuthTokenInput('');
+        setPassword('');
+        setNotice('Contraseña actualizada. Ya puedes iniciar sesión.');
+        return;
+      }
+      if (authMode === 'verify-request') {
+        const result = await api.requestEmailVerification(email.trim());
+        setAuthTokenInput(result.verificationToken || '');
+        setAuthMode('verify');
+        setNotice(result.verificationToken
+          ? 'Token generado. Confirma tu correo para terminar.'
+          : 'Si la cuenta existe y no está verificada, revisa el correo recibido.');
+        return;
+      }
+      if (authMode === 'verify') {
+        await api.verifyEmail(authTokenInput.trim());
+        setAuthMode('login');
+        setAuthTokenInput('');
+        setNotice('Correo verificado correctamente.');
+        return;
+      }
       if (authMode === 'register') {
         await api.register({
           name: name.trim(),
@@ -832,6 +863,7 @@ function App() {
 
   if (!token) {
     const registering = authMode === 'register';
+    const recovering = authMode === 'forgot' || authMode === 'reset' || authMode === 'verify-request' || authMode === 'verify';
     return (
       <SafeAreaView style={styles.safeArea}>
         <StatusBar style="light" />
@@ -843,13 +875,18 @@ function App() {
             </View>
             <View style={styles.authHeadingWrap}>
               <Text style={styles.eyebrow}>FUERZA, SESIÓN A SESIÓN</Text>
-              <Text style={styles.authHeading}>{registering ? 'Crea tu cuenta.' : 'Vuelve al trabajo.'}</Text>
-              <Text style={styles.bodyCopy}>Registra tus levantamientos y consulta cada sesión desde un mismo lugar.</Text>
+              <Text style={styles.authHeading}>{registering ? 'Crea tu cuenta.' : recovering ? 'Recupera tu acceso.' : 'Vuelve al trabajo.'}</Text>
+              <Text style={styles.bodyCopy}>{recovering ? 'Sigue los pasos para recuperar o verificar tu cuenta.' : 'Registra tus levantamientos y consulta cada sesión desde un mismo lugar.'}</Text>
             </View>
             <View style={styles.authForm}>
               {registering && <Field label="Nombre" value={name} onChangeText={setName} placeholder="Tu nombre" />}
               <Field label="Correo electrónico" value={email} onChangeText={setEmail} placeholder="nombre@correo.com" keyboardType="email-address" />
-              <Field label="Contraseña" value={password} onChangeText={setPassword} placeholder="Mínimo 8 caracteres" secureTextEntry />
+              {(authMode === 'login' || authMode === 'register' || authMode === 'reset') && (
+                <Field label={authMode === 'reset' ? 'Nueva contraseña' : 'Contraseña'} value={password} onChangeText={setPassword} placeholder="Mínimo 8 caracteres" secureTextEntry />
+              )}
+              {(authMode === 'reset' || authMode === 'verify') && (
+                <Field label={authMode === 'reset' ? 'Token de recuperación' : 'Token de verificación'} value={authTokenInput} onChangeText={setAuthTokenInput} placeholder="Pega el token recibido" />
+              )}
               {registering && (
                 <>
                   <Text style={styles.fieldLabel}>Género del perfil</Text>
@@ -867,10 +904,20 @@ function App() {
                 </>
               )}
               {!!notice && <Text accessibilityRole="alert" style={styles.notice}>{notice}</Text>}
-              <PrimaryButton disabled={registering && (!name.trim() || !bodyweight)} label={registering ? 'Crear cuenta' : 'Iniciar sesión'} loading={busy} onPress={handleAuth} />
-              <Pressable onPress={() => { setAuthMode(registering ? 'login' : 'register'); setNotice(''); }} style={styles.authSwitch}>
+              <PrimaryButton disabled={!email.trim() || (registering && (!name.trim() || !bodyweight)) || ((authMode === 'reset' || authMode === 'verify') && !authTokenInput.trim())} label={registering ? 'Crear cuenta' : authMode === 'forgot' ? 'Enviar instrucciones' : authMode === 'reset' ? 'Actualizar contraseña' : authMode === 'verify-request' ? 'Enviar verificación' : authMode === 'verify' ? 'Verificar correo' : 'Iniciar sesión'} loading={busy} onPress={handleAuth} />
+              <Pressable onPress={() => { setAuthMode(registering ? 'login' : 'register'); setAuthTokenInput(''); setNotice(''); }} style={styles.authSwitch}>
                 <Text style={styles.authSwitchText}>{registering ? 'Ya tengo cuenta' : 'Crear una cuenta'}</Text>
               </Pressable>
+              {authMode === 'login' && (
+                <>
+                  <Pressable onPress={() => { setAuthMode('forgot'); setNotice(''); }} style={styles.authSwitch}>
+                    <Text style={styles.authSwitchText}>Olvidé mi contraseña</Text>
+                  </Pressable>
+                  <Pressable onPress={() => { setAuthMode('verify-request'); setNotice(''); }} style={styles.authSwitch}>
+                    <Text style={styles.authSwitchText}>Verificar mi correo</Text>
+                  </Pressable>
+                </>
+              )}
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -922,7 +969,12 @@ function App() {
                   <Text style={styles.eyebrow}>{formatDate(getLocalDate())}</Text>
                 <Text style={styles.homeTitle}>Hola, {user?.name?.split(' ')[0] || 'Atleta'}</Text>
               </View>
-              <View style={styles.streakChip}><Text style={styles.streakText}>{trainingStreak} días seguidos</Text></View>
+              <View style={styles.homeHeaderActions}>
+                <View style={styles.streakChip}><Text style={styles.streakText}>{trainingStreak} días seguidos</Text></View>
+                <Pressable accessibilityLabel="Abrir perfil" onPress={() => setTab('profile')} style={styles.avatarButton}>
+                  <Text style={styles.avatarText}>{(user?.name || 'U').slice(0, 1).toUpperCase()}</Text>
+                </Pressable>
+              </View>
             </View>
 
             <View style={[styles.card, styles.weekCard]}>
@@ -1474,6 +1526,7 @@ const styles = StyleSheet.create({
   brandMarkText: { color: COLORS.white, fontWeight: '900', fontSize: 16 },
   brandName: { color: COLORS.ink, fontSize: 12, fontWeight: '800' },
   avatarButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.palePurple, alignItems: 'center', justifyContent: 'center' },
+  homeHeaderActions: { alignItems: 'flex-end', gap: 8 },
   avatarText: { color: COLORS.deepPurple, fontWeight: '800', fontSize: 14 },
   tabBar: { position: 'absolute', zIndex: 5, bottom: 0, left: 0, right: 0, height: 78, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 8, paddingBottom: 8, backgroundColor: 'rgba(11,11,16,0.94)', borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   tab: { flex: 1, minHeight: 44, paddingVertical: 9, paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center' },
