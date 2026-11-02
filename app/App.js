@@ -690,47 +690,48 @@ function App() {
       setBusy(false);
     }
 
-    function openSetEditor(set) {
-      setEditingSet(set);
-      setEditingWeight(String(set.weightKg ?? ''));
-      setEditingReps(String(set.reps ?? ''));
-      setEditingSetType(set.setType || 'normal');
-    }
+  }
 
-    async function handleUpdateSet() {
-      if (!editingSet || !sessionDetail?.id) return;
-      const weightKg = parseDecimal(editingWeight);
-      const reps = Number(editingReps);
-      if (!Number.isFinite(weightKg) || weightKg <= 0 || !Number.isSafeInteger(reps) || reps <= 0) {
-        setNotice('Indica una carga válida y un número entero de repeticiones mayor que cero.');
-        return;
-      }
-      setBusy(true);
-      setNotice('');
-      try {
-        await api.updateSet(token, sessionDetail.id, editingSet.id, {
-          exerciseId: editingSet.exerciseId,
-          weightKg,
-          reps,
-          setOrder: Number(editingSet.setOrder),
-          setType: editingSetType,
-          restSeconds: Number(editingSet.restSeconds || 0),
-          actualRestSeconds: Number(editingSet.actualRestSeconds || 0),
-          notes: editingSet.notes || undefined,
-        });
-        setEditingSet(null);
-        const nextSession = await api.getSession(token, sessionDetail.id);
-        setSessionDetail(nextSession);
-        setSessions(await api.getSessions(token));
-        const [nextRanks, nextRecords] = await Promise.all([api.getRanks(token), api.getRecords(token)]);
-        setRanks(nextRanks || []);
-        setRecords(nextRecords || []);
-        setNotice('Serie actualizada y progreso recalculado.');
-      } catch (error) {
-        setNotice(error.message);
-      } finally {
-        setBusy(false);
-      }
+  function openSetEditor(set) {
+    setEditingSet(set);
+    setEditingWeight(String(set.weightKg ?? ''));
+    setEditingReps(String(set.reps ?? ''));
+    setEditingSetType(set.setType || 'normal');
+  }
+
+  async function handleUpdateSet() {
+    if (!editingSet || !sessionDetail?.id) return;
+    const weightKg = parseDecimal(editingWeight);
+    const reps = Number(editingReps);
+    if (!Number.isFinite(weightKg) || weightKg <= 0 || !Number.isSafeInteger(reps) || reps <= 0) {
+      setNotice('Indica una carga válida y un número entero de repeticiones mayor que cero.');
+      return;
+    }
+    setBusy(true);
+    setNotice('');
+    try {
+      await api.updateSet(token, sessionDetail.id, editingSet.id, {
+        exerciseId: editingSet.exerciseId,
+        weightKg,
+        reps,
+        setOrder: Number(editingSet.setOrder),
+        setType: editingSetType,
+        restSeconds: Number(editingSet.restSeconds || 0),
+        actualRestSeconds: Number(editingSet.actualRestSeconds || 0),
+        notes: editingSet.notes || undefined,
+      });
+      setEditingSet(null);
+      const nextSession = await api.getSession(token, sessionDetail.id);
+      setSessionDetail(nextSession);
+      setSessions(await api.getSessions(token));
+      const [nextRanks, nextRecords] = await Promise.all([api.getRanks(token), api.getRecords(token)]);
+      setRanks(nextRanks || []);
+      setRecords(nextRecords || []);
+      setNotice('Serie actualizada y progreso recalculado.');
+    } catch (error) {
+      setNotice(error.message);
+    } finally {
+      setBusy(false);
     }
   }
 
