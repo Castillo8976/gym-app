@@ -134,6 +134,11 @@ RUN_DB_INTEGRATION=1 node --test tests/leagueVolume.integration.test.js
 ```
 ```powershell
 $env:RUN_DB_INTEGRATION = '1'
+$env:DB_HOST = '127.0.0.1'
+$env:DB_PORT = '3306'
+$env:DB_NAME = 'gym_app'
+$env:DB_USER = 'gym'
+$env:DB_PASSWORD = 'gym_dev_password'
 node --test tests/leagueVolume.integration.test.js
 Remove-Item Env:RUN_DB_INTEGRATION
 ```

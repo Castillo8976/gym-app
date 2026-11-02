@@ -4,7 +4,7 @@ Este documento resume lo que se **verificó leyendo el código** del commit `fc3
 
 ## Qué se verificó
 
-- Pruebas del backend (`npm test`): 39 pruebas, 38 pasan y 1 se omite a propósito (la de integración con base de datos, que es opt-in con `RUN_DB_INTEGRATION=1`).
+- Pruebas del backend (`npm test`): 39 pruebas pasan cuando se ejecutan con la base Docker disponible; sin `RUN_DB_INTEGRATION=1`, la integración se omite a propósito.
 - No se ejecutó el backend contra una base de datos real ni la app en un dispositivo en este entorno.
 - `app/App.js` contiene la interfaz principal y se valida con exportación web y diagnósticos de VS Code.
 
@@ -33,7 +33,7 @@ Corregido: el validador calcula la fecha del calendario local cuando no se recib
 | Ligas | Clasifican por volumen absoluto, no por fuerza relativa; no hay ascensos/descensos; crear ligas está restringido por allow-list y la clasificación solo es visible para miembros |
 | Sugerencia de discos | Calcula sobre el peso total, sin descontar barra ni dividir por lado |
 | Rendimiento | `GET /users/me/last-sets` carga todo el historial y filtra en memoria; `GET /leagues` carga todos los miembros de todas las ligas |
-| Actualización de UI | Tras guardar una serie, el historial y referencias recientes se actualizan; rangos y PRs se vuelven a cargar al restaurar o recargar la app |
+| Actualización de UI | Tras guardar o borrar una serie, historial, rangos, PRs y referencias recientes se actualizan en pantalla |
 | Género | Solo `male`/`female` en el modelo y los estándares |
 | `App.js` | Un único componente con unos 60 `useState`; navegación manual por pestañas |
 
@@ -54,7 +54,7 @@ Estado de la lista previa a publicar:
 - [x] Envolver `addSet`/`updateSet`/`deleteSet` y operaciones de creación/aplicación de rutinas en transacciones.
 - [x] Unificar y completar los estándares en la base de datos mediante migración.
 - [x] Rate limiting, `helmet` y CORS por dominio.
-- [x] Pruebas HTTP básicas con `supertest`; faltan más pruebas de integración con MySQL.
+- [x] Pruebas HTTP básicas con `supertest` y prueba de integración del volumen de ligas con MariaDB.
 - [x] Dockerfile, CI (instalar, probar) y variables de entorno de producción.
 - [ ] Backend desplegado con **HTTPS**; la URL por defecto del cliente es `http://`.
 - [x] Scripts de copias de seguridad/restauración; falta automatizar retención y almacenamiento externo.

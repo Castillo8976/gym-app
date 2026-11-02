@@ -269,18 +269,27 @@ function App() {
 
   const selectedExerciseReference = lastSets.find((entry) => entry.exerciseId === selectedExercise?.id) || null;
 
+  async function loadOptional(label, loader, fallback) {
+    try {
+      return await loader();
+    } catch (error) {
+      setNotice(`${label}: ${error.message}`);
+      return fallback;
+    }
+  }
+
   async function loadData(authToken) {
     const [exerciseList, history, restPrefs, plates, lastReferenceSets, routineList, rankList, recordList, leagueList, discoverableLeagueList] = await Promise.all([
       api.getExercises(),
       api.getSessions(authToken),
       api.getRestPreferences(authToken),
-      api.getPlateConfig(authToken).catch(() => ({ plates: DEFAULT_PLATES })),
-      api.getLastSets(authToken).catch(() => []),
-      api.getRoutines(authToken).catch(() => []),
-      api.getRanks(authToken).catch(() => []),
-      api.getRecords(authToken).catch(() => []),
-      api.getLeagues(authToken).catch(() => []),
-      api.getDiscoverableLeagues(authToken).catch(() => []),
+      loadOptional('Configuración de discos', () => api.getPlateConfig(authToken), { plates: DEFAULT_PLATES }),
+      loadOptional('Últimas series', () => api.getLastSets(authToken), []),
+      loadOptional('Rutinas', () => api.getRoutines(authToken), []),
+      loadOptional('Rangos', () => api.getRanks(authToken), []),
+      loadOptional('PRs', () => api.getRecords(authToken), []),
+      loadOptional('Ligas', () => api.getLeagues(authToken), []),
+      loadOptional('Ligas disponibles', () => api.getDiscoverableLeagues(authToken), []),
     ]);
     setExercises(exerciseList);
     setSessions(history);
@@ -413,13 +422,13 @@ function App() {
         api.getExercises(),
         api.getSessions(result.token),
         api.getRestPreferences(result.token),
-        api.getPlateConfig(result.token).catch(() => ({ plates: DEFAULT_PLATES })),
-        api.getLastSets(result.token).catch(() => []),
-        api.getRoutines(result.token).catch(() => []),
-        api.getRanks(result.token).catch(() => []),
-        api.getRecords(result.token).catch(() => []),
-        api.getLeagues(result.token).catch(() => []),
-        api.getDiscoverableLeagues(result.token).catch(() => []),
+        loadOptional('Configuración de discos', () => api.getPlateConfig(result.token), { plates: DEFAULT_PLATES }),
+        loadOptional('Últimas series', () => api.getLastSets(result.token), []),
+        loadOptional('Rutinas', () => api.getRoutines(result.token), []),
+        loadOptional('Rangos', () => api.getRanks(result.token), []),
+        loadOptional('PRs', () => api.getRecords(result.token), []),
+        loadOptional('Ligas', () => api.getLeagues(result.token), []),
+        loadOptional('Ligas disponibles', () => api.getDiscoverableLeagues(result.token), []),
       ]);
       setToken(result.token);
       setUser(profile);
@@ -516,9 +525,15 @@ function App() {
       setRestActive(true);
       setNotice('Serie guardada.');
       const history = await api.getSessions(token);
-      const nextLastSets = await api.getLastSets(token).catch(() => []);
+      const nextLastSets = await loadOptional('Últimas series', () => api.getLastSets(token), []);
+      const [nextRanks, nextRecords] = await Promise.all([
+        api.getRanks(token),
+        api.getRecords(token),
+      ]);
       setSessions(history);
       setLastSets(nextLastSets);
+      setRanks(nextRanks || []);
+      setRecords(nextRecords || []);
     } catch (error) {
       setNotice(error.message);
     } finally {
@@ -624,6 +639,12 @@ function App() {
       const nextSession = await api.getSession(token, sessionDetail.id);
       setSessionDetail(nextSession);
       setSessions(await api.getSessions(token));
+      const [nextRanks, nextRecords] = await Promise.all([
+        api.getRanks(token),
+        api.getRecords(token),
+      ]);
+      setRanks(nextRanks || []);
+      setRecords(nextRecords || []);
       setNotice('Serie eliminada y PRs recalculados.');
     } catch (error) {
       setNotice(error.message);
@@ -719,7 +740,7 @@ function App() {
       await api.createRoutine(token, payload);
       setShowRoutineBuilder(false);
       resetRoutineBuilder();
-      setRoutines(await api.getRoutines(token).catch(() => []));
+      setRoutines(await loadOptional('Rutinas', () => api.getRoutines(token), []));
       setNotice('Rutina creada correctamente.');
     } catch (error) {
       setNotice(error.message);

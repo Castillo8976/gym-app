@@ -20,7 +20,7 @@ cuentas, secretos, infraestructura o revisión legal.
 - [ ] Crear una instancia administrada de MySQL/MariaDB.
 - [ ] Aplicar migraciones en staging y producción con backup previo.
 - [ ] Verificar el flujo de rollback en una copia restaurada, no sobre producción.
-- [ ] Ejecutar la integración `RUN_DB_INTEGRATION=1`.
+- [x] Ejecutar la integración `RUN_DB_INTEGRATION=1` contra la base local de Docker.
 - [ ] Confirmar índices, límites de conexión y zona horaria.
 
 ## Aplicación móvil
