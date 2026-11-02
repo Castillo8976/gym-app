@@ -25,15 +25,18 @@ Corregido: el validador calcula la fecha del calendario local cuando no se recib
 | Repeticiones largas | `reps` admite series largas para conservar el volumen real de liga, pero el cálculo de 1RM limita Epley a 12 repeticiones |
 | Calentamientos y PR | Las series `warmup` cuentan para PR, pero no para el volumen de liga |
 | Historial de PR | Editar o borrar una serie borra y recrea el PR del ejercicio, perdiendo `achieved_at` |
+| Edición de series | El historial permite editar carga, repeticiones y tipo de serie; el progreso se recalcula después de guardar |
 | Transacciones | Las mutaciones de series y sus recálculos, además de crear/aplicar rutinas, se ejecutan en una sola transacción |
 | Estándares duplicados | Los umbrales están en `rankService.js`, en `seedData.js` y en la tabla `strength_standards` |
 | Ejercicio desconocido | Si faltan estándares de un ejercicio para cálculo de rango, el backend responde error explícito (sin fallback silencioso) |
 | Catálogo | Solo hay 5 ejercicios (los ancla); no hay ejercicios de acompañamiento |
+| Búsqueda | El selector de ejercicios permite filtrar por nombre y grupo muscular, pero no amplía el catálogo inicial |
 | Rangos | Solo hay fila de rango en los grupos con PR; no existe rango general |
 | Ligas | Clasifican por volumen absoluto, no por fuerza relativa; no hay ascensos/descensos; crear ligas está restringido por allow-list y la clasificación solo es visible para miembros |
 | Sugerencia de discos | Calcula sobre el peso total, sin descontar barra ni dividir por lado |
 | Rendimiento | `GET /users/me/last-sets` carga todo el historial y filtra en memoria; `GET /leagues` carga todos los miembros de todas las ligas |
 | Actualización de UI | Tras guardar o borrar una serie, historial, rangos, PRs y referencias recientes se actualizan en pantalla |
+| Racha | La racha usa fechas del calendario local del dispositivo para evitar desplazamientos por conversión UTC |
 | Género | Solo `male`/`female` en el modelo y los estándares |
 | `App.js` | Un único componente con unos 60 `useState`; navegación manual por pestañas |
 
