@@ -80,6 +80,42 @@ const SET_TYPE_OPTIONS = [
 ];
 
 const DEFAULT_PLATES = [2.5, 5, 10, 20, 25, 45];
+const RANK_COLORS = {
+  bronce: '#C28A5E',
+  plata: '#AEB6C4',
+  oro: '#D1B15C',
+  platino: '#7FB8B0',
+  diamante: '#8DB5E0',
+};
+
+function getRankColor(rank) {
+  return RANK_COLORS[String(rank || 'bronce').toLowerCase()] || RANK_COLORS.bronce;
+}
+
+function formatRank(rank) {
+  const value = String(rank || 'bronce');
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function getWeekDays(sessions) {
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + mondayOffset);
+  const labels = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+  const sessionDates = new Set((sessions || []).map((session) => String(session.sessionDate).slice(0, 10)));
+
+  return labels.map((label, index) => {
+    const date = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + index);
+    const dateValue = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    return {
+      label,
+      date: dateValue,
+      isDone: sessionDates.has(dateValue),
+      isToday: dateValue === getLocalDate(),
+    };
+  });
+}
 
 function Field({ label, value, onChangeText, placeholder, keyboardType, secureTextEntry }) {
   return (
@@ -708,6 +744,7 @@ function App() {
   }
 
   const detailSets = sessionDetail?.WorkoutSets || sessionDetail?.workoutSets || [];
+  const weekDays = getWeekDays(sessions);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -742,18 +779,18 @@ function App() {
           <>
             <View style={styles.homeHeader}>
               <View>
-                <Text style={styles.eyebrow}>{formatDate(new Date().toISOString().slice(0, 10))}</Text>
+                  <Text style={styles.eyebrow}>{formatDate(getLocalDate())}</Text>
                 <Text style={styles.homeTitle}>Hola, {user?.name?.split(' ')[0] || 'Atleta'}</Text>
               </View>
               <View style={styles.streakChip}><Text style={styles.streakText}>5 semanas seguidas</Text></View>
             </View>
 
             <View style={[styles.card, styles.weekCard]}>
-              {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((day, index) => (
-                <View key={day} style={styles.weekDay}>
-                  <Text style={styles.mutedText}>{day}</Text>
-                  <View style={[styles.dayCircle, index < 3 && styles.dayDone, index === 3 && styles.dayToday]}>
-                    <Text style={styles.dayMark}>{index < 3 ? '✓' : index === 3 ? '•' : ''}</Text>
+              {weekDays.map((day) => (
+                <View key={day.date} style={styles.weekDay}>
+                  <Text style={styles.mutedText}>{day.label}</Text>
+                  <View style={[styles.dayCircle, day.isDone && styles.dayDone, day.isToday && styles.dayToday]}>
+                    <Text style={styles.dayMark}>{day.isDone ? '✓' : day.isToday ? '•' : ''}</Text>
                   </View>
                 </View>
               ))}
@@ -772,13 +809,15 @@ function App() {
                 {[
                   ['Pecho', '#C28A5E'], ['Espalda', '#AEB6C4'], ['Piernas', '#D1B15C'],
                   ['Hombros', '#7FB8B0'], ['Brazos', '#8DB5E0'],
-                ].map(([label, color], index) => {
+                ].map(([label], index) => {
                   const rank = ranks.find((entry) => (entry.MuscleGroup?.name || '').toLowerCase() === label.toLowerCase());
+                  const rankName = rank?.currentRank || 'bronce';
+                  const color = getRankColor(rankName);
                   return (
                     <Pressable key={label} onPress={() => setTab('ranks')} style={styles.rangeItem}>
                       <View style={[styles.rankHex, { borderColor: color, backgroundColor: `${color}26` }]}><Text style={[styles.rankNumber, { color }]}>{rank?.level || rank?.rankLevel || index + 1}</Text></View>
                       <Text style={styles.rangeName}>{label}</Text>
-                      <Text style={[styles.rangeRank, { color }]}>{rank?.currentRank || 'Bronce'}</Text>
+                      <Text style={[styles.rangeRank, { color }]}>{rankName.charAt(0).toUpperCase() + rankName.slice(1)}</Text>
                     </Pressable>
                   );
                 })}
@@ -793,7 +832,7 @@ function App() {
         ) : tab === 'train' ? (
           <>
             <View style={styles.pageHeading}>
-              <Text style={styles.eyebrow}>{formatDate(new Date().toISOString().slice(0, 10)).toUpperCase()}</Text>
+              <Text style={styles.eyebrow}>{formatDate(getLocalDate()).toUpperCase()}</Text>
               <Text style={styles.pageTitle}>{activeSession ? 'En marcha.' : 'A entrenar.'}</Text>
               <Text style={styles.bodyCopy}>{activeSession ? 'Guarda cada serie mientras avanzas.' : `Buen trabajo, ${user?.name?.split(' ')[0] || 'atleta'}. Registra tu próxima sesión.`}</Text>
             </View>
@@ -980,9 +1019,9 @@ function App() {
               <View key={rank.id} style={styles.routineCard}>
                 <View style={styles.sectionHeadingRow}>
                   <Text style={styles.exerciseName}>{rank.MuscleGroup?.name || 'Grupo muscular'}</Text>
-                  <Text style={styles.rankBadge}>{rank.currentRank || rank.rankLevel || 'Sin nivel'}</Text>
+                  <Text style={[styles.rankBadge, { color: getRankColor(rank.currentRank) }]}>{formatRank(rank.currentRank || rank.rankLevel || 'Sin nivel')}</Text>
                 </View>
-                <View style={styles.rankBar}><View style={[styles.rankBarFill, { width: `${Math.min(100, Math.max(0, Number(rank.progressPercent || rank.progress || 0)))}%` }]} /></View>
+                <View style={styles.rankBar}><View style={[styles.rankBarFill, { backgroundColor: getRankColor(rank.currentRank), width: `${Math.min(100, Math.max(0, Number(rank.progressPercent || rank.progress || 0)))}%` }]} /></View>
                 <Text style={styles.bodyCopy}>Ratio actual: {Number(rank.ratio || 0).toLocaleString('es', { maximumFractionDigits: 2 })}×</Text>
               </View>
             ))}
@@ -1356,7 +1395,7 @@ const styles = StyleSheet.create({
   rankBarFill: { height: 8, borderRadius: 4, backgroundColor: COLORS.purple },
   routineList: { gap: 5 },
   routineItem: { color: COLORS.ink, fontSize: 12, lineHeight: 18 },
-  routineEditorRow: { backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.line, borderRadius: 8, padding: 12, gap: 12, marginBottom: 12 },
+  routineEditorRow: { backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: COLORS.line, borderRadius: 16, padding: 12, gap: 12, marginBottom: 12 },
   routineExerciseSelector: { minHeight: 46, borderWidth: 1, borderColor: COLORS.line, borderRadius: 6, justifyContent: 'center', paddingHorizontal: 12 },
   sessionRow: { minHeight: 70, paddingVertical: 11, borderBottomWidth: 1, borderColor: COLORS.line, flexDirection: 'row', alignItems: 'center', gap: 14 },
   pressedRow: { opacity: 0.7 },
@@ -1391,11 +1430,11 @@ const styles = StyleSheet.create({
   authHeadingWrap: { marginTop: 56, marginBottom: 30 },
   authHeading: { color: COLORS.ink, fontSize: 37, fontWeight: '800', marginBottom: 10 },
   authForm: { gap: 16 },
-  segmentRow: { flexDirection: 'row', backgroundColor: '#E8EAE2', borderRadius: 6, padding: 3 },
-  segment: { flex: 1, minHeight: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 4 },
-  segmentActive: { backgroundColor: COLORS.white },
+  segmentRow: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: 3, borderWidth: 1, borderColor: COLORS.line },
+  segment: { flex: 1, minHeight: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 9, paddingHorizontal: 4 },
+  segmentActive: { backgroundColor: COLORS.purple },
   segmentText: { color: COLORS.muted, fontSize: 13, fontWeight: '700' },
-  segmentTextActive: { color: COLORS.ink },
+  segmentTextActive: { color: '#0B0B10' },
   authSwitch: { alignItems: 'center', paddingVertical: 9 },
   authSwitchText: { color: COLORS.deepPurple, fontSize: 13, fontWeight: '800' },
 });
