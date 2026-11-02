@@ -27,7 +27,8 @@ cuentas, secretos, infraestructura o revisión legal.
 
 - [ ] Cambiar `EXPO_PUBLIC_API_URL` a la URL HTTPS de producción.
 - [ ] Crear un development build y probar Android/iOS en dispositivos reales.
-- [ ] Configurar EAS Build, identificadores de paquete, iconos, splash y firma.
+- [x] Configurar perfiles EAS Build, identificador Android, iconos y splash.
+- [ ] Ejecutar EAS Build con la cuenta del propietario y completar la firma.
 - [ ] Probar login, refresh, recuperación/verificación de email, sesiones, rutinas, ligas
       y eliminación de cuenta.
 - [ ] Verificar que la eliminación de cuenta sea accesible desde la UI y tenga confirmación.

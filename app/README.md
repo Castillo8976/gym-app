@@ -50,7 +50,17 @@ npm run dev-client
 
 `npm run android` equivale a `expo run:android` y compila el cliente nativo; no es un sustituto de Expo Go. En otra terminal, `npm run dev-client` proporciona el bundle JS y recarga rápida.
 
-`expo run:ios` requiere macOS. EAS Build no está configurado en esta entrega; la preparación de cuentas, firma y builds de tienda se documentará aparte y requerirá autorización.
+`expo run:ios` requiere macOS. EAS está configurado en `eas.json` con un perfil `preview` que genera un APK instalable y un perfil `production` para las tiendas. Para crear el APK:
+
+```powershell
+npm install -g eas-cli
+eas login
+eas build:configure
+eas env:create --name EXPO_PUBLIC_API_URL --value https://api.example.com/api --environment preview --visibility plaintext
+eas build --platform android --profile preview
+```
+
+Reemplaza `https://api.example.com/api` por la URL HTTPS real del backend. El perfil `preview` es el recomendado para compartir con amigos; no requiere Expo Go. La API debe estar publicada y accesible desde Internet antes del build.
 
 ## Vista previa web
 

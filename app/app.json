@@ -17,7 +17,7 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "package": "com.anonymous.formatraininglog"
+      "package": "com.castillo8976.formatraininglog"
     },
     "web": {
       "favicon": "./assets/favicon.png"
