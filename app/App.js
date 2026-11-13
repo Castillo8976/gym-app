@@ -1,4 +1,13 @@
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
+import {
+  Inter_400Regular,
+  Inter_600SemiBold,
+} from '@expo-google-fonts/inter';
+import {
+  SpaceGrotesk_500Medium,
+  SpaceGrotesk_700Bold,
+} from '@expo-google-fonts/space-grotesk';
 import * as SecureStore from 'expo-secure-store';
 import { useEffect, useState } from 'react';
 import {
@@ -973,6 +982,68 @@ function App() {
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
+      </SafeAreaView>
+    );
+  }
+
+  if (onboardingVisible) {
+    const onboardingContent = [
+      {
+        eyebrow: 'PASO 1 DE 3',
+        title: '¿Qué quieres lograr?',
+        copy: 'Así personalizamos tu inicio. Puedes cambiarlo luego.',
+        options: [
+          ['strength', 'Ganar fuerza', 'Subir tus marcas en los básicos'],
+          ['muscle', 'Ganar músculo', 'Más volumen y constancia'],
+          ['active', 'Mantenerme activo', 'Una rutina simple y sostenible'],
+        ],
+      },
+      {
+        eyebrow: 'PASO 2 DE 3',
+        title: '¿Cuál es tu experiencia?',
+        copy: 'Ajustaremos el punto de partida de tus entrenamientos.',
+        options: [
+          ['beginner', 'Estoy empezando', 'Quiero aprender y crear el hábito'],
+          ['intermediate', 'Ya entreno', 'Busco registrar y progresar mejor'],
+          ['advanced', 'Entreno en serio', 'Quiero medir cada detalle'],
+        ],
+      },
+      {
+        eyebrow: 'PASO 3 DE 3',
+        title: '¿Cuántos días entrenas?',
+        copy: 'Usaremos tu ritmo para mostrarte una semana más útil.',
+        options: [
+          ['two', '2-3 días', 'Constancia sin complicarlo'],
+          ['four', '4 días', 'Un ritmo equilibrado'],
+          ['five', '5+ días', 'Más volumen y seguimiento'],
+        ],
+      },
+    ][onboardingStep - 1];
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="light" />
+        <ScrollView contentContainerStyle={styles.onboardingContainer}>
+          <View style={styles.onboardingTop}>
+            <View style={styles.onboardingProgress}>
+              {[1, 2, 3].map((step) => <View key={step} style={[styles.onboardingProgressDot, step <= onboardingStep && styles.onboardingProgressActive]} />)}
+            </View>
+            <Pressable onPress={handleSkipOnboarding}><Text style={styles.onboardingSkip}>Omitir</Text></Pressable>
+          </View>
+          <View style={styles.onboardingHeading}>
+            <Text style={styles.eyebrow}>{onboardingContent.eyebrow}</Text>
+            <Text style={styles.onboardingTitle}>{onboardingContent.title}</Text>
+            <Text style={styles.bodyCopy}>{onboardingContent.copy}</Text>
+          </View>
+          <View style={styles.onboardingOptions}>
+            {onboardingContent.options.map(([value, title, copy]) => (
+              <Pressable key={value} onPress={() => setOnboardingSelection(value)} style={[styles.onboardingOption, onboardingSelection === value && styles.onboardingOptionSelected]}>
+                <Text style={styles.onboardingOptionTitle}>{title}</Text>
+                <Text style={styles.onboardingOptionCopy}>{copy}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <PrimaryButton disabled={!onboardingSelection} label={onboardingStep === 3 ? 'Entrar a Forma' : 'Continuar'} onPress={handleOnboardingContinue} />
+        </ScrollView>
       </SafeAreaView>
     );
   }
