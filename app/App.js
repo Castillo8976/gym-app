@@ -17,6 +17,7 @@ import {
   View,
 } from 'react-native';
 import { api, setAuthRefreshHandler } from './src/api';
+import AppIcon from './src/components/AppIcon';
 
 const TOKEN_KEY = 'gym-app-session-token';
 const REFRESH_TOKEN_KEY = 'gym-app-refresh-token';
@@ -995,21 +996,27 @@ function App() {
       </View>}
 
       <View style={styles.tabBar}>
-        <Pressable onPress={() => setTab('home')} style={[styles.tab, tab === 'home' && styles.tabActive]}>
-          <Text style={[styles.tabText, tab === 'home' && styles.tabTextActive]}>Inicio</Text>
-        </Pressable>
-        <Pressable onPress={() => setTab('train')} style={[styles.tab, tab === 'train' && styles.tabActive]}>
-          <Text style={[styles.tabText, tab === 'train' && styles.tabTextActive]}>Entrenar</Text>
-        </Pressable>
-        <Pressable onPress={() => setTab('ranks')} style={[styles.tab, tab === 'ranks' && styles.tabActive]}>
-          <Text style={[styles.tabText, tab === 'ranks' && styles.tabTextActive]}>Rangos</Text>
-        </Pressable>
-        <Pressable onPress={() => setTab('league')} style={[styles.tab, tab === 'league' && styles.tabActive]}>
-          <Text style={[styles.tabText, tab === 'league' && styles.tabTextActive]}>Liga</Text>
-        </Pressable>
-        <Pressable onPress={() => setTab('history')} style={[styles.tab, tab === 'history' && styles.tabActive]}>
-          <Text style={[styles.tabText, tab === 'history' && styles.tabTextActive]}>Historial</Text>
-        </Pressable>
+        {[
+          { key: 'home', label: 'Inicio', icon: 'home' },
+          { key: 'train', label: 'Entrenar', icon: 'train' },
+          { key: 'ranks', label: 'Rangos', icon: 'ranks' },
+          { key: 'league', label: 'Liga', icon: 'league' },
+          { key: 'profile', label: 'Perfil', icon: 'profile' },
+        ].map((item) => {
+          const active = tab === item.key;
+          return (
+            <Pressable
+              accessibilityRole="tab"
+              accessibilityState={{ selected: active }}
+              key={item.key}
+              onPress={() => setTab(item.key)}
+              style={[styles.tab, active && styles.tabActive]}
+            >
+              <AppIcon color={active ? COLORS.deepPurple : COLORS.muted} name={item.icon} />
+              <Text style={[styles.tabText, active && styles.tabTextActive]}>{item.label}</Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       <ScrollView contentContainerStyle={styles.pageContent} keyboardShouldPersistTaps="handled">
