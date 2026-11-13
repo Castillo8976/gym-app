@@ -1,5 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
+import * as Haptics from 'expo-haptics';
 import {
   Inter_400Regular,
   Inter_600SemiBold,
@@ -564,6 +565,7 @@ function App() {
       if (requestedRest > 0) payload.restSeconds = requestedRest;
       if (actualRest > 0) payload.actualRestSeconds = actualRest;
 
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await api.addSet(token, activeSession.id, payload);
       setSetCount((count) => count + 1);
       setReps('');
