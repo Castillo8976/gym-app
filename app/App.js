@@ -28,6 +28,7 @@ import {
 import { api, setAuthRefreshHandler } from './src/api';
 import AppIcon from './src/components/AppIcon';
 
+import Toast from './src/components/Toast';
 const TOKEN_KEY = 'gym-app-session-token';
 const REFRESH_TOKEN_KEY = 'gym-app-refresh-token';
 
@@ -1055,6 +1056,7 @@ function App() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <Toast message={notice} onDismiss={() => setNotice('')} />
       <StatusBar style="light" />
       {tab !== 'home' && <View style={styles.topBar}>
         <View style={styles.brandLine}>
